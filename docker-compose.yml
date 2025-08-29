@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:5
+    container_name: vetclinic-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=vetclinic-auth
+    networks:
+      - vetclinic-network
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - MONGODB_URI=mongodb://mongodb:27017/vetclinic-auth
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production-12345
+      - JWT_EXPIRES_IN=7d
+    depends_on:
+      - mongodb
+    networks:
+      - vetclinic-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  vetclinic-network:
+    driver: bridge

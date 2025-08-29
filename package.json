@@ -1,0 +1,21 @@
+{
+  "name": "vetclinic-services",
+  "version": "1.0.0",
+  "description": "Veterinary Clinic Services Workspace",
+  "scripts": {
+    "dev:auth": "npm run dev --workspace=auth-service",
+    "build:auth": "npm run build --workspace=auth-service",
+    "install:all": "npm install",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  },
+  "workspaces": [
+    "auth-service",
+    "client-service",
+    "api-gateway"
+  ],
+  "devDependencies": {
+    "typescript": "^4.9.5",
+    "nodemon": "^2.0.22"
+  }
+}
