@@ -8,7 +8,6 @@ export const register = async (req: Request, res: Response) => {
   try {
     const { email, password, role, firstName, lastName }: RegisterInput = req.body;
 
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({
@@ -17,7 +16,6 @@ export const register = async (req: Request, res: Response) => {
       });
     }
 
-    // Create new user
     const user = new User({
       email,
       password,
@@ -28,10 +26,8 @@ export const register = async (req: Request, res: Response) => {
 
     await user.save();
 
-    // Generate token
     const token = generateToken(user);
 
-    // Return user and token (excluding password)
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
@@ -60,7 +56,6 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password }: LoginInput = req.body;
 
-    // Find user by email
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
       return res.status(401).json({
@@ -69,7 +64,6 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    // Check if user is active
     if (!user.isActive) {
       return res.status(401).json({
         success: false,
@@ -77,7 +71,6 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    // Check password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -86,7 +79,6 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    // Generate token
     const token = generateToken(user);
 
     res.json({

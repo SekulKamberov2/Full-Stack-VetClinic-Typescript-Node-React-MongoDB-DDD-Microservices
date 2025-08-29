@@ -1,5 +1,4 @@
 version: '3.8'
-
 services:
   mongodb:
     image: mongo:5
@@ -8,32 +7,133 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
-    environment:
-      - MONGO_INITDB_DATABASE=vetclinic-auth
     networks:
       - vetclinic-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: vetclinic-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=vetuser
+      - RABBITMQ_DEFAULT_PASS=vetpass123
+      - RABBITMQ_DEFAULT_VHOST=vetclinic
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - vetclinic-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   auth-service:
     build:
-      context: ./services/auth-service
+      context: ./auth-service
       dockerfile: Dockerfile
     container_name: auth-service
     ports:
       - "3001:3001"
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - PORT=3001
       - MONGODB_URI=mongodb://mongodb:27017/vetclinic-auth
       - JWT_SECRET=your-super-secret-jwt-key-change-in-production-12345
       - JWT_EXPIRES_IN=7d
+      - RABBITMQ_URL=amqp://vetuser:vetpass123@rabbitmq:5672/vetclinic
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - vetclinic-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  client-service:
+    build:
+      context: ./client-service
+      dockerfile: Dockerfile
+    container_name: client-service
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+      - MONGODB_URI=mongodb://mongodb:27017/vetclinic-clients
+      - RABBITMQ_URL=amqp://vetuser:vetpass123@rabbitmq:5672/vetclinic
+      - CLIENT_CREATED_EXCHANGE=client_events
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - vetclinic-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  patient-service:
+    build:
+      context: ./patient-service
+      dockerfile: Dockerfile
+    container_name: patient-service
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=production
+      - PORT=3003
+      - MONGODB_URI=mongodb://mongodb:27017/vetclinic-patients
+      - RABBITMQ_URL=amqp://vetuser:vetpass123@rabbitmq:5672/vetclinic
+      - CLIENT_CREATED_QUEUE=client_created_queue
+      - CLIENT_CREATED_EXCHANGE=client_events
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - vetclinic-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
   mongodb_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
 
 networks:
   vetclinic-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
