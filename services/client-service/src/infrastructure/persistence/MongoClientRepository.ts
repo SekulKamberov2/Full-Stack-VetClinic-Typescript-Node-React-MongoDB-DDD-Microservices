@@ -25,8 +25,8 @@ export class MongoClientRepository implements ClientRepository {
 
   async save(client: Client): Promise<Client> {
     const clientDoc = new ClientModel(this.toDocument(client));
-    await clientDoc.save(); 
-    return this.toEntity(clientDoc);
+    const saved = await clientDoc.save(); 
+    return this.toEntity(saved);
   }
 
   async update(client: Client): Promise<void> {

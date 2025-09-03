@@ -1,5 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
-
 export interface PatientProps {
   id?: string;
   name: string;
@@ -26,7 +24,7 @@ export class Patient {
   public readonly updatedAt: Date;
 
   constructor(props: PatientProps) {
-    this.id = props.id || uuidv4();
+    this.id = props.id || "";
     this.name = props.name;
     this.species = props.species;
     this.breed = props.breed;

@@ -1,5 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
-
 export interface ClientProps {
   id?: string;
   firstName: string;
@@ -32,7 +30,7 @@ export class Client {
   public readonly updatedAt: Date;
 
   private constructor(props: ClientProps) {
-    this.id = props.id || uuidv4();
+    this.id = props.id || "";
     this.firstName = props.firstName;
     this.lastName = props.lastName;
     this.email = props.email;

@@ -20,8 +20,8 @@ export class MongoPatientRepository implements PatientRepository {
 
   async save(patient: Patient): Promise<Patient> {    
     const patientDoc = new PatientModel(this.toDocument(patient));
-    await patientDoc.save(); 
-    return this.toEntity(patientDoc);
+    const saved = await patientDoc.save(); 
+    return this.toEntity(saved);
   }
 
   async update(patient: Patient): Promise<void> {

@@ -153,6 +153,35 @@ services:
       retries: 3
       start_period: 40s
 
+  billing-service:
+    build:
+      context: ./billing-service
+      dockerfile: Dockerfile
+    container_name: billing-service
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=production
+      - PORT=3005
+      - MONGODB_URI=mongodb://mongodb:27017/vetclinic-billing
+      - RABBITMQ_URL=amqp://vetuser:vetpass123@rabbitmq:5672/vetclinic
+      - BILLING_EVENTS_EXCHANGE=billing_events
+      - APPOINTMENT_EVENTS_EXCHANGE=appointment_events
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - vetclinic-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
 volumes:
   mongodb_data:
     driver: local
