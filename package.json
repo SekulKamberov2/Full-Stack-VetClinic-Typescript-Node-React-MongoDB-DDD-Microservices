@@ -1,23 +1,44 @@
 {
   "name": "vetclinic-services",
   "version": "1.0.0",
-  "description": "Veterinary Clinic Services Workspace",
+  "description": "Veterinary Clinic Services",
+  "author": "Sekul Kamberov",
   "scripts": {
-    "dev:auth": "npm run dev --workspace=auth-service",
-    "build:auth": "npm run build --workspace=auth-service",
+    "dev:auth": "npm run dev --workspace=services/auth-service",
+    "build:auth": "npm run build --workspace=services/auth-service",
+    "dev:client": "npm run dev --workspace=services/client-service",
+    "build:client": "npm run build --workspace=services/client-service",
+    "dev:medical": "npm run dev --workspace=services/medical-record-service",
+    "build:medical": "npm run build --workspace=services/medical-record-service",
+    "dev:patient": "npm run dev --workspace=services/patient-service",
+    "build:patient": "npm run build --workspace=services/patient-service",
+    "dev:appointment": "npm run dev --workspace=services/appointment-service",
+    "build:appointment": "npm run build --workspace=services/appointment-service",
+    "dev:billing": "npm run dev --workspace=services/billing-service",
+    "build:billing": "npm run build --workspace=services/billing-service",
+    "dev:shared": "npm run dev --workspace=services/shared-kernel",
+    "build:shared": "npm run build --workspace=services/shared-kernel",
     "install:all": "npm install",
+    "build:all": "npm run build:shared && npm run build:auth && npm run build:client && npm run build:patient && npm run build:appointment && npm run build:medical && npm run build:billing",
+    "dev:all": "npm run dev:shared & npm run dev:auth & npm run dev:client & npm run dev:patient & npm run dev:appointment & npm run dev:medical & npm run dev:billing",
     "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down"
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build",
+    "docker:rebuild": "docker-compose down && docker-compose build --no-cache && docker-compose up -d"
   },
   "workspaces": [
-    "auth-service",
-    "client-service",
-    "api-gateway"
+    "services/auth-service",
+    "services/client-service",
+    "services/patient-service",
+    "services/appointment-service",
+    "services/medical-record-service",
+    "services/billing-service",
+    "services/shared-kernel"
   ],
   "devDependencies": {
     "@types/uuid": "^10.0.0",
     "nodemon": "^2.0.22",
-    "typescript": "^4.9.5"
+    "typescript": "^5.3.3"
   },
   "dependencies": {
     "uuid": "^11.1.0"
