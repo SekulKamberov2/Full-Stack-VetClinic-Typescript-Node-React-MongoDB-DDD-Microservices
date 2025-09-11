@@ -1,13 +1,17 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { ValidationError } from '@vetclinic/shared-kernel';
 
 export interface IUser extends Document {
+  _id: mongoose.Types.ObjectId;
   email: string;
   password: string;
   role: 'admin' | 'vet' | 'staff' | 'client';
   firstName: string;
   lastName: string;
   isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -19,6 +23,13 @@ const userSchema = new Schema<IUser>(
       unique: true,
       lowercase: true,
       trim: true,
+      validate: {
+        validator: (email: string) => {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          return emailRegex.test(email);
+        },
+        message: 'Invalid email format'
+      }
     },
     password: {
       type: String,
@@ -34,11 +45,13 @@ const userSchema = new Schema<IUser>(
       type: String,
       required: true,
       trim: true,
+      maxlength: 50,
     },
     lastName: {
       type: String,
       required: true,
       trim: true,
+      maxlength: 50,
     },
     isActive: {
       type: Boolean,
@@ -58,7 +71,7 @@ userSchema.pre<IUser>('save', async function (next) {
     this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (error: any) {
-    next(error);
+    next(new ValidationError('Password hashing failed', error));
   }
 });
 

@@ -28,5 +28,10 @@ class RequestValidator {
             throw new ValidationError_1.ValidationError(`${paramName} is required`, undefined, context);
         }
     }
+    static isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
 }
 exports.RequestValidator = RequestValidator;
+//# sourceMappingURL=RequestValidator.js.map

@@ -18,19 +18,18 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "exactOptionalPropertyTypes": false,
-    "noImplicitReturns": false,
+    "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "strictNullChecks": true,
-     
     "baseUrl": "./",
     "paths": {
-      "@vetclinic/shared-kernel": ["../shared-kernel/dist"],
-      "@vetclinic/shared-kernel/*": ["../shared-kernel/dist/*"]
+      "@vetclinic/shared-kernel": ["../../shared-kernel/dist"],
+      "@vetclinic/shared-kernel/*": ["../../shared-kernel/dist/*"]
     }
   },
   "include": [
     "src/**/*",
-    "../shared-kernel/dist/**/*.d.ts"
+    "../../shared-kernel/dist/**/*.d.ts"
   ],
   "exclude": [
     "node_modules",

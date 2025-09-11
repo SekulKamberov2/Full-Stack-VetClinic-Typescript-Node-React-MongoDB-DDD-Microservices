@@ -7,3 +7,4 @@ export declare class NotFoundError extends AppError {
     static fromUnknown(error: unknown, context?: string): NotFoundError;
     static forResource(resourceType: string, resourceId: string, context?: string): NotFoundError;
 }
+//# sourceMappingURL=NotFoundError.d.ts.map

@@ -16,3 +16,4 @@ export declare abstract class BaseController {
     protected validateObjectId(id: string, paramName: string, context?: string): void;
     private getStatusCode;
 }
+//# sourceMappingURL=BaseController.d.ts.map

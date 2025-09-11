@@ -22,3 +22,4 @@ class NotFoundError extends AppError_1.AppError {
     }
 }
 exports.NotFoundError = NotFoundError;
+//# sourceMappingURL=NotFoundError.js.map

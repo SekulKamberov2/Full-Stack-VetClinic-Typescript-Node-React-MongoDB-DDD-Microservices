@@ -10,3 +10,4 @@ export declare const ErrorGuards: {
     isMongooseValidationError(error: unknown): error is mongoose.Error.ValidationError;
     isMongooseCastError(error: unknown): error is mongoose.Error.CastError;
 };
+//# sourceMappingURL=ErrorGuards.d.ts.map

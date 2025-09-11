@@ -18,3 +18,4 @@ class AuthorizationError extends AppError_1.AppError {
     }
 }
 exports.AuthorizationError = AuthorizationError;
+//# sourceMappingURL=AuthorizationError.js.map

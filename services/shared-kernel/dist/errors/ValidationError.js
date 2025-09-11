@@ -18,3 +18,4 @@ class ValidationError extends AppError_1.AppError {
     }
 }
 exports.ValidationError = ValidationError;
+//# sourceMappingURL=ValidationError.js.map

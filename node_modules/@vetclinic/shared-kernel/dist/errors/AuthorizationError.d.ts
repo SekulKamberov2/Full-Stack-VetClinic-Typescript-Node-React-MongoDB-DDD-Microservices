@@ -5,3 +5,4 @@ export declare class AuthorizationError extends AppError {
     static isAuthorizationError(error: unknown): error is AuthorizationError;
     static fromUnknown(error: unknown, context?: string): AuthorizationError;
 }
+//# sourceMappingURL=AuthorizationError.d.ts.map

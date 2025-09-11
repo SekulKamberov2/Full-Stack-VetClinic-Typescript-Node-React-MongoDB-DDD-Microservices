@@ -10,14 +10,15 @@ export const authenticate = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
     const authHeader = req.header('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: 'Access denied. No token provided.',
       });
+      return;
     }
 
     const token = authHeader.replace('Bearer ', '');
@@ -26,10 +27,11 @@ export const authenticate = async (
     const user = await User.findById(decoded.id).select('-password');
     
     if (!user || !user.isActive) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: 'Token is not valid or user is inactive.',
       });
+      return;
     }
 
     req.user = user;
@@ -43,19 +45,21 @@ export const authenticate = async (
 };
 
 export const authorize = (...roles: string[]) => {
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
+  return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: 'Access denied. No user information.',
       });
+      return;
     }
 
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
+      res.status(403).json({
         success: false,
         message: 'Access denied. Insufficient permissions.',
       });
+      return;
     }
 
     next();

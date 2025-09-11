@@ -4,3 +4,4 @@ export interface AppRequest {
     query: Record<string, string>;
     headers?: Record<string, string>;
 }
+//# sourceMappingURL=AppRequest.d.ts.map

@@ -5,3 +5,4 @@ export declare class DuplicateError extends AppError {
     static isDuplicateError(error: unknown): error is DuplicateError;
     static fromUnknown(error: unknown, context?: string): DuplicateError;
 }
+//# sourceMappingURL=DuplicateError.d.ts.map

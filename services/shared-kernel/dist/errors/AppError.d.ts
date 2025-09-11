@@ -21,3 +21,4 @@ export declare class AppError extends Error {
     static getErrorCode(error: unknown): string;
     static fromUnknown(error: unknown, context?: string): AppError;
 }
+//# sourceMappingURL=AppError.d.ts.map

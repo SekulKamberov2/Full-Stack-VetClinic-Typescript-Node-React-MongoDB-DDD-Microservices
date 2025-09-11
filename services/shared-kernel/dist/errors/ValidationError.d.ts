@@ -5,3 +5,4 @@ export declare class ValidationError extends AppError {
     static isValidationError(error: unknown): error is ValidationError;
     static fromUnknown(error: unknown, context?: string): ValidationError;
 }
+//# sourceMappingURL=ValidationError.d.ts.map
