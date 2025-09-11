@@ -37,18 +37,15 @@ export const generateToken = (user: IUser): string => {
   const signOptions: SignOptions = {};
  
   if (expiresIn) {
-    // numeric string, convert to number
     if (/^\d+$/.test(expiresIn)) {
       signOptions.expiresIn = parseInt(expiresIn, 10);
     } else { 
-      // jwt.sign accepts string formats like "1d", "2h", "3m", "4s"
       const validFormats = ['d', 'h', 'm', 's', 'ms'];
       const format = expiresIn.slice(-1);
       
       if (validFormats.includes(format)) {
         signOptions.expiresIn = expiresIn as jwt.SignOptions['expiresIn'];
       } else {
-        // Default to 7 days if format is invalid
         signOptions.expiresIn = '7d';
       }
     }
@@ -96,6 +93,6 @@ export const isTokenExpiringSoon = (token: string, thresholdSeconds: number = 36
     const now = Math.floor(Date.now() / 1000);
     return (payload.exp - now) <= thresholdSeconds;
   } catch {
-    return true; // If can't verify, assume it's expiring
+    return true; 
   }
 };

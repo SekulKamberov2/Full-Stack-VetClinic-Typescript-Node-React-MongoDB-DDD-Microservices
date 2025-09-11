@@ -1,22 +1,25 @@
 FROM node:18-alpine
 
 RUN apk add --no-cache curl
+
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci
+COPY services/shared-kernel/ ./shared-kernel/
+RUN cd shared-kernel && npm install && npm run build
 
-COPY . .
+COPY services/billing-service/package*.json ./
+COPY services/billing-service/tsconfig.json ./
+
+RUN npm install
+
+RUN npm install ./shared-kernel
+
+COPY services/billing-service/src ./src
+
 RUN npm run build
 
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S billing-service -u 1001
-RUN chown -R billing-service:nodejs /app
-USER billing-service
+RUN npm ci --only=production
 
 EXPOSE 3005
-
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3005/health || exit 1
 
 CMD ["node", "dist/index.js"]

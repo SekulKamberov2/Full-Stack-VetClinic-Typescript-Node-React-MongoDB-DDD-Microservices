@@ -19,7 +19,11 @@ export class GetAllMedicalRecordsUseCase {
   }): Promise<any> {
     try {
       const skip = (options.page - 1) * options.limit;
-      const result = await this.medicalRecordRepository.findAll(skip, options.limit, options.filters);
+      const result = await this.medicalRecordRepository.findAllWithPagination(
+        skip, 
+        options.limit, 
+        options.filters
+      );
       
       return {
         records: result.records,
@@ -33,6 +37,7 @@ export class GetAllMedicalRecordsUseCase {
       };
     } catch (error) {
       ErrorHandler.handleAppError(error, 'Get all medical records');
-    }
+    } 
+    
   }
 }

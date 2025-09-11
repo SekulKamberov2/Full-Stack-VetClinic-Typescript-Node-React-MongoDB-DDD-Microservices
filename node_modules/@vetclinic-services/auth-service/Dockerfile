@@ -1,16 +1,24 @@
 FROM node:18-alpine
 
-RUN apk add --no-cache yarn
+RUN apk add --no-cache curl
 
 WORKDIR /app
 
-COPY package*.json tsconfig.json ./
+COPY services/shared-kernel/ ./shared-kernel/
+RUN cd shared-kernel && npm install && npm run build
+ 
+COPY services/auth-service/package*.json ./
+COPY services/auth-service/tsconfig.json ./
 
-RUN yarn install --frozen-lockfile --network-timeout 300000
+RUN npm install
 
-COPY . .
+RUN npm install ./shared-kernel
 
-RUN yarn build
+COPY services/auth-service/src ./src
+
+RUN npm run build
+
+RUN npm ci --only=production
 
 EXPOSE 3001
 

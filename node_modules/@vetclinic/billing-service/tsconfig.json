@@ -7,7 +7,7 @@
     "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": false,  
+    "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "moduleResolution": "node",
@@ -19,11 +19,17 @@
     "noUnusedParameters": true,
     "exactOptionalPropertyTypes": true,
     "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+     
+    "baseUrl": "./",
+    "paths": {
+      "@vetclinic/shared-kernel": ["../shared-kernel/dist"],
+      "@vetclinic/shared-kernel/*": ["../shared-kernel/dist/*"]
+    }
   },
   "include": [
     "src/**/*",
-    "**/*.d.ts"
+    "../shared-kernel/dist/**/*.d.ts"
   ],
   "exclude": [
     "node_modules",

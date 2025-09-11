@@ -31,15 +31,6 @@ const bootstrap = async () => {
   const deletePatientUseCase = new DeletePatientUseCase(patientRepository);
   const handleClientCreatedUseCase = new HandleClientCreatedUseCase(patientRepository);
 
-  // initialize rabitMQ consumer (commented for now)
-  // const eventConsumer = new EventConsumer(process.env.RABBITMQ_URL!);
-  // await eventConsumer.connect();
-  // await eventConsumer.consume(
-  //   process.env.CLIENT_CREATED_QUEUE!,
-  //   'client_events',
-  //   (message) => handleClientCreatedUseCase.execute(message)
-  // );
-
   const patientController = new PatientController(
     getPatientsByOwnerUseCase,
     createPatientUseCase,
@@ -69,7 +60,6 @@ const bootstrap = async () => {
 
   process.on('SIGINT', async () => {
     console.log('\n Shutting down patient service gracefully...');
-    // await eventConsumer.disconnect();
     process.exit(0);
   });
 };

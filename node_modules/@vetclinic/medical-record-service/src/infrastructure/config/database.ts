@@ -1,169 +1,163 @@
 import mongoose from 'mongoose';
-import { MedicalRecordModel } from '../persistence/models/MedicalRecord';  
-import { DiagnosisModel } from '../persistence/models/DiagnosisModel';  
-import { TreatmentModel } from '../persistence/models/TreatmentModel'; 
-import { PrescriptionModel } from '../persistence/models/PrescriptionModel';  
-import { AppError, ValidationError, ErrorHandler } from '@vetclinic/shared-kernel';
+import { AppError, ValidationError } from '@vetclinic/shared-kernel';
 
-export const connectDB = async (uri: string): Promise<void> => {
-  try { 
-    if (!uri || uri.trim() === '') {
-      throw new ValidationError('MongoDB connection URI is required', undefined, 'Database connection');
-    }
+export interface DatabaseConfig {
+  uri: string;
+  options?: mongoose.ConnectOptions;
+}
 
-    await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000,  
-      socketTimeoutMS: 45000,  
-    });  
-    
-    await createIndexes(); 
-    console.log('MongoDB connection established successfully');
-    
-  } catch (error) {
-    const context = 'MongoDB connection';
-    console.error(`${context} error:`, error);
-    
-    if (AppError.isAppError(error)) {
-      throw error;
+export class DatabaseConnection {
+  private static instance: DatabaseConnection;
+  private _isConnected = false; 
+  private connection: mongoose.Connection | null = null;
+
+  private constructor() {}
+
+  static getInstance(): DatabaseConnection {
+    if (!DatabaseConnection.instance) {
+      DatabaseConnection.instance = new DatabaseConnection();
     }
-    
-    throw new AppError(
-      `Failed to connect to database: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'DATABASE_CONNECTION_FAILED',
-      error,
-      context
-    );
+    return DatabaseConnection.instance;
   }
-};
 
-const createIndexes = async (): Promise<void> => {
-  try {  
-    await MedicalRecordModel.createIndexes(); 
-     
-    if (DiagnosisModel && DiagnosisModel.createIndexes) {
-      await DiagnosisModel.createIndexes(); 
+  async connect(config: DatabaseConfig): Promise<void> {
+    if (this._isConnected) {
+      return;
     }
-    
-    if (TreatmentModel && TreatmentModel.createIndexes) {
-      await TreatmentModel.createIndexes(); 
+
+    try {
+      if (!config.uri || config.uri.trim() === '') {
+        throw new ValidationError('MongoDB connection URI is required');
+      }
+
+      const defaultOptions: mongoose.ConnectOptions = {
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+        maxPoolSize: 10,
+        minPoolSize: 2,
+        ...config.options
+      };
+
+      await mongoose.connect(config.uri, defaultOptions);
+
+      this.connection = mongoose.connection;
+      this._isConnected = true;
+      
+      console.log('MongoDB connection established successfully');
+      this.setupEventListeners();
+      
+    } catch (error) {
+      throw new AppError(
+        `Failed to connect to database: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'DATABASE_CONNECTION_FAILED',
+        error
+      );
     }
-    
-    if (PrescriptionModel && PrescriptionModel.createIndexes) {
-      await PrescriptionModel.createIndexes(); 
-    } 
-    
-    console.log('Database indexes created successfully');
-    
-  } catch (error) {
-    const context = 'Database index creation';
-    console.error(`${context} error:`, error);
-    
-    if (AppError.isAppError(error)) {
-      throw error;
-    }
-    
-    throw new AppError(
-      `Failed to create database indexes: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'INDEX_CREATION_FAILED',
-      error,
-      context
-    );
   }
-};
 
-export const closeDB = async (): Promise<void> => {
-  try {
-    if (mongoose.connection.readyState !== 0) {  
-      await mongoose.connection.close(); 
+  async disconnect(): Promise<void> {
+    if (!this._isConnected || !this.connection) {
+      return;
+    }
+
+    try {
+      await mongoose.connection.close();
+      this._isConnected = false;
+      this.connection = null;
       console.log('MongoDB connection closed successfully');
+    } catch (error) {
+      throw new AppError(
+        `Failed to disconnect from database: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'DATABASE_DISCONNECT_FAILED',
+        error
+      );
     }
-  } catch (error) {
-    const context = 'MongoDB connection closure';
-    console.error(`${context} error:`, error);
-    
-    if (AppError.isAppError(error)) {
-      throw error;
-    }
-    
-    throw new AppError(
-      `Failed to close database connection: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'DATABASE_CLOSURE_FAILED',
-      error,
-      context
-    );
   }
-};
 
-export const checkDatabaseHealth = async (): Promise<boolean> => {
-  try {
-    if (mongoose.connection.readyState !== 1) {  
+  isConnected(): boolean {
+    return this._isConnected && mongoose.connection.readyState === 1;
+  }
+
+  getConnection(): mongoose.Connection {
+    if (!this.isConnected() || !this.connection) {
+      throw new AppError('Database not connected', 'DATABASE_NOT_CONNECTED');
+    }
+    return this.connection;
+  }
+
+  getMongoose(): typeof mongoose {
+    if (!this.isConnected()) {
+      throw new AppError('Database not connected', 'DATABASE_NOT_CONNECTED');
+    }
+    return mongoose;
+  }
+
+  private setupEventListeners(): void {
+    if (!this.connection) return;
+
+    this.connection.on('connected', () => {
+      console.log('MongoDB connection established');
+      this._isConnected = true;
+    });
+
+    this.connection.on('error', (error) => {
+      console.error('MongoDB connection error:', error);
+      this._isConnected = false;
+    });
+
+    this.connection.on('disconnected', () => {
+      console.log('MongoDB connection disconnected');
+      this._isConnected = false;
+    });
+
+    this.connection.on('reconnected', () => {
+      console.log('MongoDB connection reestablished');
+      this._isConnected = true;
+    });
+  }
+
+  async withTransaction<T>(callback: (session: mongoose.ClientSession) => Promise<T>): Promise<T> {
+    if (!this.isConnected()) {
+      throw new AppError('Database not connected', 'DATABASE_NOT_CONNECTED');
+    }
+
+    const session = await mongoose.startSession();
+    
+    try {
+      session.startTransaction();
+      const result = await callback(session);
+      await session.commitTransaction();
+      return result;
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
+  }
+
+  async healthCheck(): Promise<boolean> {
+    try {
+      if (!this.isConnected()) return false;
+      await mongoose.connection.db.admin().ping();
+      return true;
+    } catch {
       return false;
     }
-    
-    await mongoose.connection.db.admin().ping(); 
-    return true;
-  } catch (error) {
-    const context = 'Database health check';
-    console.error(`${context} failed:`, error);
-    return false;
   }
-};
 
-export const getDatabaseStats = async (): Promise<any> => {
-  try {
-    if (mongoose.connection.readyState !== 1) {
-      throw new AppError('Database not connected', 'DATABASE_NOT_CONNECTED', undefined, 'Database statistics');
+  async createIndexes(): Promise<void> {
+    if (!this.isConnected()) {
+      throw new AppError('Database not connected', 'DATABASE_NOT_CONNECTED');
     }
 
-    const stats = await mongoose.connection.db.stats(); 
-    return stats;
-  } catch (error) {
-    const context = 'Database statistics';
-    console.error(`Failed to get ${context}:`, error);
-    
-    if (AppError.isAppError(error)) {
+    try { 
+      console.log('Database indexes verified');
+    } catch (error) {
+      console.error('Error creating indexes:', error);
       throw error;
     }
-    
-    throw new AppError(
-      `Failed to get database statistics: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'STATS_RETRIEVAL_FAILED',
-      error,
-      context
-    );
   }
-};
+}
 
-export const isDatabaseConnected = (): boolean => {
-  return mongoose.connection.readyState === 1;
-};
-
-export const getConnectionState = (): string => {
-  const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
-  return states[mongoose.connection.readyState] || 'unknown';
-};
- 
-mongoose.connection.on('connected', () => {
-  console.log('MongoDB connection established');
-});
-
-mongoose.connection.on('error', (error) => {
-  const context = 'MongoDB connection error event';
-  console.error(`${context}:`, error);
-  
-  if (!AppError.isAppError(error)) {
-    ErrorHandler.handleAppError(error, context);
-  }
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('MongoDB connection disconnected');
-});
-
-mongoose.connection.on('reconnected', () => {
-  console.log('MongoDB connection reestablished');
-});
-
-mongoose.connection.on('close', () => {
-  console.log('MongoDB connection closed');
-});
+export const database = DatabaseConnection.getInstance();

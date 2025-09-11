@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectDB } from './infrastructure/config/database';
 import { MongoClientRepository } from './infrastructure/persistence/MongoClientRepository';
-import { EventPublisher } from './infrastructure/messaging/EventPublisher';
+
 import { CreateClientUseCase } from './application/use-cases/CreateClientUseCase';
 import { GetClientUseCase } from './application/use-cases/GetClientUseCase';
 import { GetAllClientsUseCase } from './application/use-cases/GetAllClientsUseCase';
@@ -25,7 +25,7 @@ const bootstrap = async () => {
 
   const clientRepository = new MongoClientRepository();
 
-  const createClientUseCase = new CreateClientUseCase(clientRepository, {} as any);
+  const createClientUseCase = new CreateClientUseCase(clientRepository);
   const getClientUseCase = new GetClientUseCase(clientRepository);
   const getAllClientsUseCase = new GetAllClientsUseCase(clientRepository);
   const updateClientUseCase = new UpdateClientUseCase(clientRepository);
@@ -45,7 +45,7 @@ const bootstrap = async () => {
 
   app.use('/api', createClientRoutes(clientController));
 
-  app.get('/health', (req, res) => {
+  app.get('/health', (_req, res) => {
     res.json({ 
       success: true, 
       message: 'Client service is running',

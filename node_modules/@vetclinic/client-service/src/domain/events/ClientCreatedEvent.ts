@@ -1,5 +1,3 @@
-import { Client } from '../entities/Client';
-
 export interface DomainEvent {
   type: string;
   aggregateId: string;

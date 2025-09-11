@@ -1,4 +1,4 @@
-import { AppError, ValidationError, NotFoundError, DuplicateError, ErrorGuards } from './index';
+import { AppError, ValidationError, DuplicateError, ErrorGuards } from './index';
 
 export class ErrorHandler {
   static handleAppError(error: unknown, context: string = 'Operation'): never {

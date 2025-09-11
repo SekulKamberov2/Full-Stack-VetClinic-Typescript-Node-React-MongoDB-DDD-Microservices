@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { ServiceModel } from '../persistence/models/ServiceModel'; // Adjust path as needed
+import { ServiceModel } from '../persistence/models/ServiceModel';
 
 export const connectDB = async (uri: string): Promise<void> => {
   try {

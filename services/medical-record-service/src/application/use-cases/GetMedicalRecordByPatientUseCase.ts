@@ -7,7 +7,12 @@ export class GetMedicalRecordsByPatientUseCase {
   async execute(patientId: string, page: number = 1, limit: number = 50): Promise<any> {
     try {
       const skip = (page - 1) * limit;
-      const result = await this.medicalRecordRepository.findAll(skip, limit, { patientId });
+      
+      const result = await this.medicalRecordRepository.findAllWithPagination(
+        skip, 
+        limit, 
+        { patientId }
+      );
       
       return {
         records: result.records,

@@ -4,7 +4,7 @@ import { ServiceController } from '../controllers/ServiceController';
 export const createServiceRoutes = (serviceController: ServiceController) => {
   const router = express.Router();
 
-  //important order .. query string
+  //important order dont tuch.. query string
   router.get('/services/search', (req, res) => serviceController.searchServices(req, res));
   router.get('/services/name', (req, res) => serviceController.findServiceByName(req, res));
   //static request first

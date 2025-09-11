@@ -1,44 +1,109 @@
-import { Diagnosis, DiagnosisProps } from "../../domain/entities/Diagnosis";
+import { Diagnosis } from "../../domain/entities/Diagnosis";
 import { DiagnosisRepository } from "../../domain/repositories/DiagnosisRepository";
-import { DiagnosisModel } from "./models/DiagnosisModel";
-import { ValidationError } from '@vetclinic/shared-kernel';
 import { BaseMongoRepository } from "./BaseMongoRepository";
+import { DiagnosisModel } from "./models/DiagnosisModel";
+import { ValidationError } from "@vetclinic/shared-kernel";
 
 export class MongoDiagnosisRepository extends BaseMongoRepository<Diagnosis> implements DiagnosisRepository {
   protected model = DiagnosisModel;
 
   protected toEntity(doc: any): Diagnosis {
-    const props: DiagnosisProps = {
+    return Diagnosis.create({
       id: doc._id.toString(),
       recordId: doc.recordId,
       description: doc.description,
       date: doc.date,
       notes: doc.notes,
-    };
-    return Diagnosis.create(props);
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt
+    });
   }
 
   protected toDocument(diagnosis: Diagnosis): any {
-    return { 
+    return {
       recordId: diagnosis.recordId,
       description: diagnosis.description,
       date: diagnosis.date,
-      notes: diagnosis.notes
+      notes: diagnosis.notes,
+      createdAt: diagnosis.createdAt,
+      updatedAt: diagnosis.updatedAt
     };
+  }
+
+  async findAll(): Promise<Diagnosis[]> {
+    try {
+      this.ensureConnection();
+      
+      const documents = await this.executeWithLogging('findAll', () =>
+        this.model.find().sort({ date: -1 }).exec()
+      );
+      
+      return documents.map(doc => this.toEntity(doc));
+    } catch (error) {
+      this.handleDatabaseError(error, 'findAll');
+    }
+  }
+
+  async save(diagnosis: Diagnosis): Promise<Diagnosis> {
+    try {
+      this.ensureConnection();
+      
+      const document = new this.model(this.toDocument(diagnosis));
+      const savedDoc = await this.executeWithLogging('save', () =>
+        document.save()
+      );
+      return this.toEntity(savedDoc);
+    } catch (error) {
+      this.handleDatabaseError(error, 'save');
+    }
+  }
+
+  async delete(id: string): Promise<boolean> {
+    try {
+      this.ensureConnection();
+      this.validateId(id);
+      
+      const result = await this.executeWithLogging('delete', () =>
+        this.model.findByIdAndDelete(id).exec()
+      );
+      
+      return result !== null;
+    } catch (error) {
+      this.handleDatabaseError(error, 'delete');
+    }
+  }
+ 
+  async exists(id: string): Promise<boolean> {
+    try {
+      this.ensureConnection();
+      this.validateId(id);
+      
+      const count = await this.executeWithLogging('exists', () =>
+        this.model.countDocuments({ _id: id }).exec()
+      );
+      return count > 0;
+    } catch (error) {
+      this.handleDatabaseError(error, 'exists');
+    }
+  }
+
+  async update(diagnosis: Diagnosis): Promise<boolean> {
+    return super.update(diagnosis);
   }
 
   async findByRecordId(recordId: string): Promise<Diagnosis[]> {
     try {
+      this.ensureConnection();
+      
       if (!recordId || recordId.trim() === '') {
         throw new ValidationError("Record ID is required", undefined, 'Diagnosis repository');
       }
 
-      const diagnosisDocs = await this.executeWithLogging('findByRecordId', () =>
-        DiagnosisModel.find({ recordId })
-          .sort({ date: -1 })
-          .exec()
+      const documents = await this.executeWithLogging('findByRecordId', () =>
+        this.model.find({ recordId }).sort({ date: -1 }).exec()
       );
-      return diagnosisDocs.map(doc => this.toEntity(doc));
+      
+      return documents.map(doc => this.toEntity(doc));
     } catch (error) {
       this.handleDatabaseError(error, 'findByRecordId');
     }
@@ -46,16 +111,19 @@ export class MongoDiagnosisRepository extends BaseMongoRepository<Diagnosis> imp
 
   async findByDescription(description: string): Promise<Diagnosis[]> {
     try {
+      this.ensureConnection();
+      
       if (!description || description.trim() === '') {
-        throw new ValidationError("Description is required", undefined, 'Diagnosis repository');
+        return [];
       }
 
-      const diagnosisDocs = await this.executeWithLogging('findByDescription', () =>
-        DiagnosisModel.find({ 
+      const documents = await this.executeWithLogging('findByDescription', () =>
+        this.model.find({ 
           description: { $regex: new RegExp(description, 'i') }
-        }).exec()
+        }).sort({ date: -1 }).exec()
       );
-      return diagnosisDocs.map(doc => this.toEntity(doc));
+      
+      return documents.map(doc => this.toEntity(doc));
     } catch (error) {
       this.handleDatabaseError(error, 'findByDescription');
     }
@@ -63,20 +131,26 @@ export class MongoDiagnosisRepository extends BaseMongoRepository<Diagnosis> imp
 
   async findByDateRange(startDate: Date, endDate: Date): Promise<Diagnosis[]> {
     try {
+      this.ensureConnection();
+      
       if (!startDate || !endDate) {
-        throw new ValidationError("Start date and end date are required", undefined, 'Diagnosis repository');
+        throw new ValidationError("Both start and end dates are required", undefined, 'Diagnosis repository');
       }
 
       if (startDate > endDate) {
         throw new ValidationError("Start date cannot be after end date", undefined, 'Diagnosis repository');
       }
 
-      const diagnosisDocs = await this.executeWithLogging('findByDateRange', () =>
-        DiagnosisModel.find({ 
-          date: { $gte: startDate, $lte: endDate }
-        }).exec()
+      const documents = await this.executeWithLogging('findByDateRange', () =>
+        this.model.find({ 
+          date: { 
+            $gte: startDate, 
+            $lte: endDate 
+          } 
+        }).sort({ date: -1 }).exec()
       );
-      return diagnosisDocs.map(doc => this.toEntity(doc));
+      
+      return documents.map(doc => this.toEntity(doc));
     } catch (error) {
       this.handleDatabaseError(error, 'findByDateRange');
     }
@@ -84,19 +158,22 @@ export class MongoDiagnosisRepository extends BaseMongoRepository<Diagnosis> imp
 
   async findRecent(days: number = 30): Promise<Diagnosis[]> {
     try {
+      this.ensureConnection();
+      
       if (days <= 0) {
         throw new ValidationError("Days must be a positive number", undefined, 'Diagnosis repository');
       }
 
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - days);
-      
-      const diagnosisDocs = await this.executeWithLogging('findRecent', () =>
-        DiagnosisModel.find({ 
-          date: { $gte: cutoffDate }
-        }).exec()
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      const documents = await this.executeWithLogging('findRecent', () =>
+        this.model.find({ 
+          date: { $gte: startDate } 
+        }).sort({ date: -1 }).exec()
       );
-      return diagnosisDocs.map(doc => this.toEntity(doc));
+      
+      return documents.map(doc => this.toEntity(doc));
     } catch (error) {
       this.handleDatabaseError(error, 'findRecent');
     }
@@ -104,25 +181,44 @@ export class MongoDiagnosisRepository extends BaseMongoRepository<Diagnosis> imp
 
   async findWithNotes(): Promise<Diagnosis[]> {
     try {
-      const diagnosisDocs = await this.executeWithLogging('findWithNotes', () =>
-        DiagnosisModel.find({ 
-          notes: { $exists: true, $ne: '' } 
-        }).exec()
+      this.ensureConnection();
+      
+      const documents = await this.executeWithLogging('findWithNotes', () =>
+        this.model.find({ 
+          $and: [
+            { notes: { $exists: true } },
+            { notes: { $ne: null } },
+            { notes: { $ne: "" } }
+          ]
+        }).sort({ date: -1 }).exec()
       );
-      return diagnosisDocs.map(doc => this.toEntity(doc));
+      
+      return documents.map(doc => this.toEntity(doc));
     } catch (error) {
       this.handleDatabaseError(error, 'findWithNotes');
     }
   }
 
-  async findAll(): Promise<Diagnosis[]> {
+  async search(query: string): Promise<Diagnosis[]> {
     try {
-      const diagnosisDocs = await this.executeWithLogging('findAll', () =>
-        DiagnosisModel.find().exec()
+      this.ensureConnection();
+      
+      if (!query || query.trim() === '') {
+        return [];
+      }
+
+      const documents = await this.executeWithLogging('search', () =>
+        this.model.find({
+          $or: [
+            { description: { $regex: new RegExp(query, 'i') } },
+            { notes: { $regex: new RegExp(query, 'i') } }
+          ]
+        }).sort({ date: -1 }).exec()
       );
-      return diagnosisDocs.map(doc => this.toEntity(doc));
+      
+      return documents.map(doc => this.toEntity(doc));
     } catch (error) {
-      this.handleDatabaseError(error, 'findAll');
+      this.handleDatabaseError(error, 'search');
     }
   }
 
@@ -133,119 +229,54 @@ export class MongoDiagnosisRepository extends BaseMongoRepository<Diagnosis> imp
     mostCommonDiagnoses: { diagnosis: string; count: number }[];
   }> {
     try {
-      const [totalDiagnoses, diagnosesWithNotes, diagnosesByRecordAgg, mostCommonDiagnosesAgg] = 
-        await Promise.all([
-          DiagnosisModel.countDocuments(),
-          DiagnosisModel.countDocuments({ notes: { $exists: true, $ne: '' } }),
-          DiagnosisModel.aggregate([
-            { $group: { _id: '$recordId', count: { $sum: 1 } } }
-          ]),
-          DiagnosisModel.aggregate([
-            { $group: { _id: '$description', count: { $sum: 1 } } },
-            { $sort: { count: -1 } },
-            { $limit: 10 }
-          ])
-        ]);
-
-      const diagnosesByRecord: Record<string, number> = {};
-      diagnosesByRecordAgg.forEach(item => {
-        diagnosesByRecord[item._id] = item.count;
-      });
-
-      const mostCommonDiagnoses = mostCommonDiagnosesAgg.map(item => ({
-        diagnosis: item._id,
-        count: item.count
-      }));
-
-      return {
+      this.ensureConnection();
+      
+      const [
         totalDiagnoses,
         diagnosesWithNotes,
         diagnosesByRecord,
         mostCommonDiagnoses
+      ] = await Promise.all([
+        this.executeWithLogging('countTotal', () => this.model.countDocuments().exec()),
+        this.executeWithLogging('countWithNotes', () => 
+          this.model.countDocuments({ 
+            $and: [
+              { notes: { $exists: true } },
+              { notes: { $ne: null } },
+              { notes: { $ne: "" } }
+            ]
+          }).exec()
+        ),
+        this.executeWithLogging('groupByRecord', () =>
+          this.model.aggregate([
+            { $group: { _id: "$recordId", count: { $sum: 1 } } }
+          ]).exec() 
+        ),
+        this.executeWithLogging('mostCommonDiagnoses', () =>
+          this.model.aggregate([
+            { $group: { _id: "$description", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 10 }
+          ]).exec() 
+        )
+      ]);
+
+      const diagnosesByRecordMap: Record<string, number> = {};
+      diagnosesByRecord.forEach((item: any) => {
+        diagnosesByRecordMap[item._id] = item.count;
+      });
+
+      return {
+        totalDiagnoses,
+        diagnosesWithNotes,
+        diagnosesByRecord: diagnosesByRecordMap,
+        mostCommonDiagnoses: mostCommonDiagnoses.map((item: any) => ({
+          diagnosis: item._id,
+          count: item.count
+        }))
       };
     } catch (error) {
       this.handleDatabaseError(error, 'getStats');
-    }
-  }
-
-  async save(diagnosis: Diagnosis): Promise<Diagnosis> {
-    try {
-      const diagnosisDoc = new DiagnosisModel(this.toDocument(diagnosis));
-      const savedDoc = await this.executeWithLogging('save', () =>
-        diagnosisDoc.save()
-      );
-      return this.toEntity(savedDoc);
-    } catch (error) {
-      this.handleDatabaseError(error, 'save');
-    }
-  }
-
-  async update(diagnosis: Diagnosis): Promise<void> {
-    try {
-      await this.executeWithLogging('update', () =>
-        DiagnosisModel.findByIdAndUpdate(
-          diagnosis.id, 
-          this.toDocument(diagnosis),
-          { new: true, runValidators: true }
-        ).exec()
-      );
-    } catch (error) {
-      this.handleDatabaseError(error, 'update');
-    }
-  }
-
-  async updateById(id: string, updateData: Partial<Diagnosis>): Promise<void> {
-    try {
-      this.validateId(id);
-
-      const updateQuery: any = {};
-      
-      if (updateData.description !== undefined) {
-        if (!updateData.description || updateData.description.trim() === '') {
-          throw new ValidationError("Description cannot be empty", undefined, 'Diagnosis repository');
-        }
-        updateQuery.description = updateData.description;
-      }
-
-      if (updateData.notes !== undefined) updateQuery.notes = updateData.notes;
-      if (updateData.date !== undefined) updateQuery.date = updateData.date;
-      
-      if (updateData.recordId !== undefined) {
-        if (!updateData.recordId || updateData.recordId.trim() === '') {
-          throw new ValidationError("Record ID cannot be empty", undefined, 'Diagnosis repository');
-        }
-        updateQuery.recordId = updateData.recordId;
-      }
-
-      await this.executeWithLogging('updateById', () =>
-        DiagnosisModel.findByIdAndUpdate(
-          id,
-          updateQuery,
-          { new: true, runValidators: true }
-        ).exec()
-      );
-    } catch (error) {
-      this.handleDatabaseError(error, 'updateById');
-    }
-  }
-
-  async search(query: string): Promise<Diagnosis[]> {
-    try {
-      if (!query || query.trim() === '') {
-        throw new ValidationError("Search query is required", undefined, 'Diagnosis repository');
-      }
-
-      const diagnosisDocs = await this.executeWithLogging('search', () =>
-        DiagnosisModel.find({
-          $or: [
-            { description: { $regex: new RegExp(query, 'i') } },
-            { notes: { $regex: new RegExp(query, 'i') } }
-          ]
-        }).exec()
-      );
-      return diagnosisDocs.map(doc => this.toEntity(doc));
-    } catch (error) {
-      this.handleDatabaseError(error, 'search');
     }
   }
 
@@ -257,62 +288,95 @@ export class MongoDiagnosisRepository extends BaseMongoRepository<Diagnosis> imp
     monthlyTrend: { month: string; count: number }[];
   }> {
     try {
-      const [total, withNotes, byRecordAgg, topDiagnosesAgg, monthlyTrendAgg] = 
-        await Promise.all([
-          DiagnosisModel.countDocuments(),
-          DiagnosisModel.countDocuments({ notes: { $exists: true, $ne: '' } }),
-          DiagnosisModel.aggregate([{ $group: { _id: '$recordId', count: { $sum: 1 } } }]),
-          DiagnosisModel.aggregate([
-            { $group: { _id: '$description', count: { $sum: 1 } } },
+      this.ensureConnection();
+      
+      const [
+        total,
+        withNotes,
+        byRecord,
+        topDiagnoses,
+        monthlyTrend
+      ] = await Promise.all([
+        this.executeWithLogging('countTotal', () => this.model.countDocuments().exec()),
+        this.executeWithLogging('countWithNotes', () => 
+          this.model.countDocuments({ 
+            $and: [
+              { notes: { $exists: true } },
+              { notes: { $ne: null } },
+              { notes: { $ne: "" } }
+            ]
+          }).exec()
+        ),
+        this.executeWithLogging('groupByRecord', () =>
+          this.model.aggregate([
+            { $group: { _id: "$recordId", count: { $sum: 1 } } }
+          ]).exec()
+        ),
+        this.executeWithLogging('topDiagnoses', () =>
+          this.model.aggregate([
+            { $group: { _id: "$description", count: { $sum: 1 } } },
             { $sort: { count: -1 } },
             { $limit: 10 }
-          ]),
-          DiagnosisModel.aggregate([
+          ]).exec()
+        ),
+        this.executeWithLogging('monthlyTrend', () =>
+          this.model.aggregate([
             {
               $group: {
-                _id: { year: { $year: '$date' }, month: { $month: '$date' } },
+                _id: {
+                  year: { $year: "$date" },
+                  month: { $month: "$date" }
+                },
                 count: { $sum: 1 }
               }
             },
-            { $sort: { '_id.year': 1, '_id.month': 1 } },
+            { $sort: { "_id.year": 1, "_id.month": 1 } },
             { $limit: 12 }
-          ])
-        ]);
+          ]).exec()
+        )
+      ]);
 
-      const byRecord: Record<string, number> = {};
-      byRecordAgg.forEach(item => {
-        byRecord[item._id] = item.count;
+      const byRecordMap: Record<string, number> = {};
+      byRecord.forEach((item: any) => {
+        byRecordMap[item._id] = item.count;
       });
 
-      const topDiagnoses = topDiagnosesAgg.map(item => ({
-        diagnosis: item._id,
-        count: item.count
-      }));
-
-      const monthlyTrend = monthlyTrendAgg.map(item => ({
-        month: `${item._id.year}-${item._id.month.toString().padStart(2, '0')}`,
-        count: item.count
-      }));
-
-      return { total, withNotes, byRecord, topDiagnoses, monthlyTrend };
+      return {
+        total,
+        withNotes,
+        byRecord: byRecordMap,
+        topDiagnoses: topDiagnoses.map((item: any) => ({
+          diagnosis: item._id,
+          count: item.count
+        })),
+        monthlyTrend: monthlyTrend.map((item: any) => ({
+          month: `${item._id.year}-${item._id.month.toString().padStart(2, '0')}`,
+          count: item.count
+        }))
+      };
     } catch (error) {
       this.handleDatabaseError(error, 'getDiagnosisStats');
     }
   }
 
-  async bulkUpdateNotes(ids: string[], notes: string): Promise<void> {
+  async updateNotes(ids: string[], notes: string): Promise<void> {
     try {
+      this.ensureConnection();
+      
       if (!ids || ids.length === 0) {
-        throw new ValidationError("IDs array cannot be empty", undefined, 'Diagnosis repository');
+        return;
       }
 
-      ids.forEach(id => this.validateId(id));
+      const validIds = ids.filter(id => this.isValidObjectId(id));
+      
+      if (validIds.length === 0) {
+        throw new ValidationError("No valid IDs provided", undefined, 'Diagnosis repository');
+      }
 
       await this.executeWithLogging('bulkUpdateNotes', () =>
-        DiagnosisModel.updateMany(
-          { _id: { $in: ids } },
-          { notes },
-          { runValidators: true }
+        this.model.updateMany(
+          { _id: { $in: validIds } },
+          { $set: { notes, updatedAt: new Date() } }
         ).exec()
       );
     } catch (error) {
@@ -322,41 +386,73 @@ export class MongoDiagnosisRepository extends BaseMongoRepository<Diagnosis> imp
 
   async getDiagnosisTrend(startDate: Date, endDate: Date): Promise<{ date: string; count: number }[]> {
     try {
+      this.ensureConnection();
+      
       if (!startDate || !endDate) {
-        throw new ValidationError("Start date and end date are required", undefined, 'Diagnosis repository');
+        throw new ValidationError("Both start and end dates are required", undefined, 'Diagnosis repository');
       }
 
       if (startDate > endDate) {
         throw new ValidationError("Start date cannot be after end date", undefined, 'Diagnosis repository');
       }
 
-      const trendAgg = await this.executeWithLogging('getDiagnosisTrend', () =>
-        DiagnosisModel.aggregate([
+      const trendData = await this.executeWithLogging('getDiagnosisTrend', () =>
+        this.model.aggregate([
           {
             $match: {
-              date: { $gte: startDate, $lte: endDate }
+              date: {
+                $gte: startDate,
+                $lte: endDate
+              }
             }
           },
           {
             $group: {
               _id: {
-                year: { $year: '$date' },
-                month: { $month: '$date' },
-                day: { $dayOfMonth: '$date' }
+                $dateToString: {
+                  format: "%Y-%m-%d",
+                  date: "$date"
+                }
               },
               count: { $sum: 1 }
             }
           },
-          { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
-        ])
+          { $sort: { _id: 1 } }
+        ]).exec()
       );
 
-      return trendAgg.map(item => ({
-        date: `${item._id.year}-${item._id.month.toString().padStart(2, '0')}-${item._id.day.toString().padStart(2, '0')}`,
+      return trendData.map((item: any) => ({
+        date: item._id,
         count: item.count
       }));
     } catch (error) {
       this.handleDatabaseError(error, 'getDiagnosisTrend');
+    }
+  }
+
+  async updateById(id: string, updateData: Partial<Diagnosis>): Promise<boolean> {
+    try {
+      this.ensureConnection();
+      this.validateId(id);
+      
+      const documentData: any = {};
+      
+      if (updateData.description !== undefined) documentData.description = updateData.description;
+      if (updateData.notes !== undefined) documentData.notes = updateData.notes;
+      if (updateData.date !== undefined) documentData.date = updateData.date;
+      documentData.updatedAt = new Date();
+
+      const result = await this.executeWithLogging('updateById', () =>
+        this.model.findByIdAndUpdate(
+          id,
+          { $set: documentData },
+          { new: true, runValidators: true }
+        ).exec()
+      );
+      
+      return result !== null;
+    } catch (error) {
+      this.handleDatabaseError(error, 'updateById');
     }
   }
 }

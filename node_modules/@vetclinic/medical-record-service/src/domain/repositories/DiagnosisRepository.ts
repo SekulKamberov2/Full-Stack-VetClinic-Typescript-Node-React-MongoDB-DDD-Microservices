@@ -26,10 +26,10 @@ export interface DiagnosisRepository {
   }>;
 
   save(diagnosis: Diagnosis): Promise<Diagnosis>;
-  update(diagnosis: Diagnosis): Promise<void>;
-  updateById(id: string, updateData: Partial<Diagnosis>): Promise<void>;
-  delete(id: string): Promise<void>;
+  update(diagnosis: Diagnosis): Promise<boolean>;
+  updateById(id: string, updateData: Partial<Diagnosis>): Promise<boolean>;
+  delete(id: string): Promise<boolean>;
   exists(id: string): Promise<boolean>;
-  bulkUpdateNotes(ids: string[], notes: string): Promise<void>;
+  updateNotes(ids: string[], notes: string): Promise<void>;
   getDiagnosisTrend(startDate: Date, endDate: Date): Promise<{ date: string; count: number }[]>;
 }

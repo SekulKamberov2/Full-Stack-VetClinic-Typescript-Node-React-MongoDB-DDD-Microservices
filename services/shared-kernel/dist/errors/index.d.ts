@@ -5,5 +5,6 @@ export { DuplicateError } from './DuplicateError';
 export { AuthorizationError } from './AuthorizationError';
 export { ErrorHandler } from './ErrorHandler';
 export { ErrorGuards } from './ErrorGuards';
-export { BaseController } from './BaseController';
+export { BaseController, AppResponse } from './BaseController';
 export { RequestValidator } from './RequestValidator';
+export { AppRequest } from './AppRequest';

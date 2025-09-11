@@ -51,7 +51,7 @@ export class ClientController {
     }
   }
 
-  async getAllClients(req: Request, res: Response): Promise<void> {
+  async getAllClients(_req: Request, res: Response): Promise<void> {
     try {
       const clients = await this.getAllClientsUseCase.execute();
       res.json({

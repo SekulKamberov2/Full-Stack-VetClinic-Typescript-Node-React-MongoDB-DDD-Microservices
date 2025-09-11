@@ -5,7 +5,5 @@ export class HandleClientCreatedUseCase {
 
   async execute(event: any): Promise<void> {
     console.log('Received client created event:', event);
-    // here must havedefault patient records or other actions
-    // when a new client is created
   }
 }

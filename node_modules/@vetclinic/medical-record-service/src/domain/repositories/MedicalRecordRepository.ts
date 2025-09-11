@@ -1,13 +1,32 @@
-import { MedicalRecord } from "../entities/MedicalRecord"; 
+import { MedicalRecord } from "../entities/MedicalRecord";
 
 export interface MedicalRecordRepository {
-  save(record: MedicalRecord): Promise<MedicalRecord>;  
   findById(id: string): Promise<MedicalRecord | null>;
   findByPatientId(patientId: string): Promise<MedicalRecord[]>;
   findByClientId(clientId: string): Promise<MedicalRecord[]>;
   findByVeterinarianId(veterinarianId: string): Promise<MedicalRecord[]>;
   findByAppointmentId(appointmentId: string): Promise<MedicalRecord | null>;
-  findAll(skip?: number, limit?: number, filters?: any): Promise<{ records: MedicalRecord[]; totalCount: number }>;
+
+  findAll(
+    filter?: any,
+    options?: { sort?: any; limit?: number; skip?: number }
+  ): Promise<MedicalRecord[]>;
+
   exists(id: string): Promise<boolean>;
-  delete(id: string): Promise<boolean>;
+
+  findAllWithPagination(
+    skip?: number,
+    limit?: number,
+    filters?: {
+      patientId?: string;
+      clientId?: string;
+      veterinarianId?: string;
+      dateFrom?: Date;
+      dateTo?: Date;
+    }
+  ): Promise<{ records: MedicalRecord[]; totalCount: number }>;
+
+  delete(id: string): Promise<boolean>;  
+  save(record: MedicalRecord): Promise<MedicalRecord>;
+  cleanupCorruptedData(): Promise<void>;
 }
