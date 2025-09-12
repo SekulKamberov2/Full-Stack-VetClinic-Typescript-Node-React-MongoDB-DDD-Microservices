@@ -1,8 +1,8 @@
 import amqp from 'amqplib';
-import { EventPublisher } from '../../shared/domain/EventPublisher';
+import { EventPublisher as IEventPublisher } from '../../shared/domain/EventPublisher';
 import { DomainEvent } from '../../domain/events/BillingEvents';
 
-export class RabbitMQEventPublisher implements EventPublisher {
+export class EventPublisher implements IEventPublisher {
   private connection: amqp.Connection | null = null;
   private channel: amqp.Channel | null = null;
 

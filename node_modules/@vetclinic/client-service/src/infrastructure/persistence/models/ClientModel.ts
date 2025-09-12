@@ -27,16 +27,50 @@ const AddressSchema = new Schema({
 
 const ClientSchema = new Schema<IClientDocument>(
   {
-    firstName: { type: String, required: true, trim: true },
-    lastName: { type: String, required: true, trim: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    phone: { type: String, required: true, trim: true },
-    address: { type: AddressSchema, required: true },
-    isActive: { type: Boolean, default: true },
+    firstName: { 
+      type: String, 
+      required: true, 
+      trim: true,
+      index: true 
+    },
+    lastName: { 
+      type: String, 
+      required: true, 
+      trim: true,
+      index: true 
+    },
+    email: { 
+      type: String, 
+      required: true, 
+      unique: true, 
+      lowercase: true, 
+      trim: true,
+      index: true 
+    },
+    phone: { 
+      type: String, 
+      required: true, 
+      trim: true 
+    },
+    address: { 
+      type: AddressSchema, 
+      required: true 
+    },
+    isActive: { 
+      type: Boolean, 
+      default: true,
+      index: true 
+    },
   },
   {
     timestamps: true, 
   }
-); 
+);
+
+ClientSchema.index({ firstName: 1, lastName: 1 });
+ClientSchema.index({ isActive: 1, createdAt: -1 });
+ClientSchema.index({ 'address.state': 1, isActive: 1 });
+
+ClientSchema.index({ firstName: 'text', lastName: 'text', email: 'text', phone: 'text'});
 
 export const ClientModel = mongoose.model<IClientDocument>('Client', ClientSchema);

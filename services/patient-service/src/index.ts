@@ -1,7 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
-import { connectDB } from './infrastructure/config/database';
+import { database } from './infrastructure/config/database';
 import { MongoPatientRepository } from './infrastructure/persistence/MongoPatientRepository';
 import { EventConsumer } from './infrastructure/messaging/EventConsumer';
 import { GetPatientsByOwnerUseCase } from './application/use-cases/GetPatientsByOwnerUseCase';
@@ -10,58 +9,116 @@ import { GetPatientUseCase } from './application/use-cases/GetPatientUseCase';
 import { GetAllPatientsUseCase } from './application/use-cases/GetAllPatientsUseCase';
 import { UpdatePatientUseCase } from './application/use-cases/UpdatePatientUseCase';
 import { DeletePatientUseCase } from './application/use-cases/DeletePatientUseCase';
-import { HandleClientCreatedUseCase } from './application/use-cases/HandleClientCreatedUseCase';
 import { PatientController } from './interfaces/controllers/PatientController';
 import { createPatientRoutes } from './interfaces/routes/patientRoutes';
 
-dotenv.config();
-
 const PORT = process.env.PORT || 3003;
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/vetclinic-patients';
+const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://localhost:5672';
 
 const bootstrap = async () => {
-  await connectDB(process.env.MONGODB_URI!);
-
-  const patientRepository = new MongoPatientRepository();
-
-  const getPatientsByOwnerUseCase = new GetPatientsByOwnerUseCase(patientRepository);
-  const createPatientUseCase = new CreatePatientUseCase(patientRepository);
-  const getPatientUseCase = new GetPatientUseCase(patientRepository);
-  const getAllPatientsUseCase = new GetAllPatientsUseCase(patientRepository);
-  const updatePatientUseCase = new UpdatePatientUseCase(patientRepository);
-  const deletePatientUseCase = new DeletePatientUseCase(patientRepository);
-  const handleClientCreatedUseCase = new HandleClientCreatedUseCase(patientRepository);
-
-  const patientController = new PatientController(
-    getPatientsByOwnerUseCase,
-    createPatientUseCase,
-    getPatientUseCase,
-    getAllPatientsUseCase,
-    updatePatientUseCase,
-    deletePatientUseCase
-  );
-
-  const app = express();
-  app.use(cors());
-  app.use(express.json());
-
-  app.use('/api', createPatientRoutes(patientController));
-
-  app.get('/health', (req, res) => {
-    res.json({ 
-      success: true, 
-      message: 'Patient service is running',
-      timestamp: new Date().toISOString()
+  try {
+    console.log('Starting Patient Service...');
+    
+    console.log('Connecting to MongoDB...');
+    await database.connect({
+      uri: MONGODB_URI,
+      options: {
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+        maxPoolSize: 10,
+        minPoolSize: 2,
+      }
     });
-  });
+    console.log('Connected to MongoDB successfully');
 
-  app.listen(PORT, () => {
-    console.log(` Patient service running on port ${PORT}`);
-  });
+    const patientRepository = new MongoPatientRepository();
+    
+    const eventConsumer = new EventConsumer(RABBITMQ_URL);
+    await eventConsumer.connect();
+    
+    const getPatientsByOwnerUseCase = new GetPatientsByOwnerUseCase(patientRepository);
+    const createPatientUseCase = new CreatePatientUseCase(patientRepository);
+    const getPatientUseCase = new GetPatientUseCase(patientRepository);
+    const getAllPatientsUseCase = new GetAllPatientsUseCase(patientRepository);
+    const updatePatientUseCase = new UpdatePatientUseCase(patientRepository);
+    const deletePatientUseCase = new DeletePatientUseCase(patientRepository);
 
-  process.on('SIGINT', async () => {
-    console.log('\n Shutting down patient service gracefully...');
-    process.exit(0);
-  });
+    const patientController = new PatientController(
+      getPatientsByOwnerUseCase,
+      createPatientUseCase,
+      getPatientUseCase,
+      getAllPatientsUseCase,
+      updatePatientUseCase,
+      deletePatientUseCase
+    );
+
+    const app = express();
+    app.use(cors());
+    app.use(express.json());
+    
+    app.use('/api', createPatientRoutes(patientController));
+    
+    app.get('/health', async (req, res) => {
+      try {
+        const dbHealth = await database.healthCheck();
+        res.json({ 
+          success: true, 
+          message: 'Patient service is running',
+          database: dbHealth ? 'connected' : 'disconnected',
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          message: 'Health check failed',
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    });
+    
+    app.listen(PORT, () => {
+      console.log(`Patient service running on port ${PORT}`);
+      console.log(`Health check: http://localhost:${PORT}/health`);
+    });
+    
+    const gracefulShutdown = async (signal: string) => {
+      console.log(`\n Received ${signal}. Starting graceful shutdown...`);
+      
+      try {
+        await eventConsumer.disconnect();
+        console.log('RabbitMQ consumer disconnected');
+        
+        await database.disconnect();
+        console.log('MongoDB connection closed');
+        
+        console.log('Shutdown completed');
+        process.exit(0);
+      } catch (error) {
+        console.error('Error during shutdown:', error);
+        process.exit(1);
+      }
+    };
+
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+  } catch (error) {
+    console.error('Fatal error during application startup:', error);
+    process.exit(1);
+  }
 };
 
-bootstrap().catch(console.error);
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
+bootstrap().catch((error) => {
+  console.error('Fatal error in bootstrap:', error);
+  process.exit(1);
+});

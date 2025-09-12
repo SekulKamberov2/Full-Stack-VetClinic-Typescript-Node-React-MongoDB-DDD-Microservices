@@ -1,69 +1,53 @@
 import { Appointment, AppointmentProps, AppointmentStatus } from '../../domain/entities/Appointment';
 import { AppointmentRepository } from '../../domain/repositories/AppointmentRepository';
-import mongoose, { Schema, Model } from 'mongoose';
-
-interface AppointmentDocument extends mongoose.Document {
-  clientId: string;
-  patientId: string;
-  veterinarianId: string;
-  appointmentDate: Date;
-  duration: number;
-  status: AppointmentStatus;
-  reason: string;
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-const appointmentSchema = new Schema<AppointmentDocument>({
-  clientId: { type: String, required: true },
-  patientId: { type: String, required: true },
-  veterinarianId: { type: String, required: true },
-  appointmentDate: { type: Date, required: true },
-  duration: { type: Number, required: true },
-  status: { 
-    type: String, 
-    enum: Object.values(AppointmentStatus),
-    required: true 
-  },
-  reason: { type: String, required: true },
-  notes: { type: String },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
-});
+import { AppointmentModel, AppointmentDocument } from './models/AppointmentModel';
+import { AppError, ValidationError, NotFoundError } from '@vetclinic/shared-kernel';
 
 export class MongoAppointmentRepository implements AppointmentRepository {
-  private model: Model<AppointmentDocument>;
+  private model: typeof AppointmentModel;
 
   constructor() {
-    this.model = mongoose.model<AppointmentDocument>('Appointment', appointmentSchema);
+    this.model = AppointmentModel;
   }
 
   async findById(id: string): Promise<Appointment | null> {
-    try { 
+    try {
       const appointmentDoc = await this.model.findById(id).exec();
       return appointmentDoc ? this.toEntity(appointmentDoc) : null;
-    } catch (error) { 
-      const appointmentDoc = await this.model.findOne({ _id: id }).exec();
-      return appointmentDoc ? this.toEntity(appointmentDoc) : null;
+    } catch (error) {
+      this.handleDatabaseError(error, 'findById');
     }
   }
 
   async findByClientId(clientId: string): Promise<Appointment[]> {
-    const appointmentDocs = await this.model.find({ clientId }).exec();
-    return appointmentDocs.map(doc => this.toEntity(doc));
+    try {
+      const appointmentDocs = await this.model.find({ clientId })
+        .sort({ appointmentDate: -1 })
+        .exec();
+      return appointmentDocs.map(doc => this.toEntity(doc));
+    } catch (error) {
+      this.handleDatabaseError(error, 'findByClientId');
+    }
   }
 
   async findByVeterinarianId(veterinarianId: string): Promise<Appointment[]> {
-    const appointmentDocs = await this.model.find({ veterinarianId }).exec();
-    return appointmentDocs.map(doc => this.toEntity(doc));
+    try {
+      const appointmentDocs = await this.model.find({ veterinarianId })
+        .sort({ appointmentDate: -1 })
+        .exec();
+      return appointmentDocs.map(doc => this.toEntity(doc));
+    } catch (error) {
+      this.handleDatabaseError(error, 'findByVeterinarianId');
+    }
   }
 
   async findByDateRange(startDate: Date, endDate: Date): Promise<Appointment[]> {
-    const appointmentDocs = await this.model.find({
-      appointmentDate: { $gte: startDate, $lte: endDate }
-    }).exec();
-    return appointmentDocs.map(doc => this.toEntity(doc));
+    try {
+      const appointmentDocs = await this.model.findByDateRange(startDate, endDate);
+      return appointmentDocs.map(doc => this.toEntity(doc));
+    } catch (error) {
+      this.handleDatabaseError(error, 'findByDateRange');
+    }
   }
 
   async findByVeterinarianIdAndDateRange(
@@ -71,79 +55,107 @@ export class MongoAppointmentRepository implements AppointmentRepository {
     startDate: Date, 
     endDate: Date
   ): Promise<Appointment[]> {
-    const appointmentDocs = await this.model.find({
-      veterinarianId,
-      $or: [
-        { appointmentDate: { $gte: startDate, $lte: endDate } },
-        { 
-          $expr: {
-            $lte: [
-              { $add: ["$appointmentDate", { $multiply: ["$duration", 60000] }] },
-              endDate
-            ]
-          }
-        },
-        {
-          $expr: {
-            $and: [
-              { $lte: ["$appointmentDate", startDate] },
-              { $gte: [
-                { $add: ["$appointmentDate", { $multiply: ["$duration", 60000] }] },
-                endDate
-              ]}
-            ]
-          }
-        }
-      ],
-      status: { 
-        $in: [
-          AppointmentStatus.SCHEDULED, 
-          AppointmentStatus.CONFIRMED, 
-          AppointmentStatus.IN_PROGRESS
-        ] 
-      }
-    }).exec();
-    
-    return appointmentDocs.map(doc => this.toEntity(doc));
-  } 
+    try {
+      const appointmentDocs = await this.model.findByVeterinarianAndDateRange(
+        veterinarianId, 
+        startDate, 
+        endDate
+      );
+      return appointmentDocs.map(doc => this.toEntity(doc));
+    } catch (error) {
+      this.handleDatabaseError(error, 'findByVeterinarianIdAndDateRange');
+    }
+  }
 
-  async save(appointment: Appointment): Promise<Appointment> { 
-  if (!appointment.id || appointment.id === '') {
-    const appointmentDoc = new this.model(this.toDocument(appointment));
-    await appointmentDoc.save(); 
-    return this.toEntity(appointmentDoc);
+  async findConflictingAppointments(
+    veterinarianId: string,
+    appointmentDate: Date,
+    duration: number
+  ): Promise<Appointment[]> {
+    try {
+      const appointmentDocs = await this.model.findConflictingAppointments(
+        veterinarianId,
+        appointmentDate,
+        duration
+      );
+      return appointmentDocs.map(doc => this.toEntity(doc));
+    } catch (error) {
+      this.handleDatabaseError(error, 'findConflictingAppointments');
+    }
   }
-   
-  const updatedDoc = await this.model.findByIdAndUpdate(
-    appointment.id,
-    this.toDocument(appointment),
-    { new: true, runValidators: true }
-  ).exec();
-  
-  if (!updatedDoc) {
-    throw new Error('Failed to update appointment');
+
+  async save(appointment: Appointment): Promise<Appointment> {
+    try {
+      if (!appointment.id || appointment.id === '') {
+        const appointmentDoc = new this.model(this.toDocument(appointment));
+        const savedDoc = await appointmentDoc.save();
+        return this.toEntity(savedDoc);
+      }
+      
+      const updatedDoc = await this.model.findByIdAndUpdate(
+        appointment.id,
+        this.toDocument(appointment),
+        { new: true, runValidators: true }
+      ).exec();
+      
+      if (!updatedDoc) {
+        throw new NotFoundError(
+          `Appointment with ID ${appointment.id} not found`,
+          undefined,
+          'AppointmentRepository'
+        );
+      }
+      return this.toEntity(updatedDoc);
+    } catch (error) {
+      this.handleDatabaseError(error, 'save');
+    }
   }
-  return this.toEntity(updatedDoc);
-}
 
   async update(appointment: Appointment): Promise<void> {
-    await this.model.findByIdAndUpdate(
-      appointment.id, 
-      this.toDocument(appointment), 
-      { new: true }
-    );
+    try {
+      const result = await this.model.findByIdAndUpdate(
+        appointment.id, 
+        this.toDocument(appointment), 
+        { new: true, runValidators: true }
+      ).exec();
+      
+      if (!result) {
+        throw new NotFoundError(
+          `Appointment with ID ${appointment.id} not found`,
+          undefined,
+          'AppointmentRepository'
+        );
+      }
+    } catch (error) {
+      this.handleDatabaseError(error, 'update');
+    }
   }
 
   async delete(id: string): Promise<void> {
-    await this.model.findByIdAndDelete(id).exec();
+    try {
+      const result = await this.model.findByIdAndDelete(id).exec();
+      if (!result) {
+        throw new NotFoundError(
+          `Appointment with ID ${id} not found`,
+          undefined,
+          'AppointmentRepository'
+        );
+      }
+    } catch (error) {
+      this.handleDatabaseError(error, 'delete');
+    }
   }
 
   async exists(id: string): Promise<boolean> {
-    const count = await this.model.countDocuments({ _id: id }).exec();
-    return count > 0;
+    try {
+      const count = await this.model.countDocuments({ _id: id }).exec();
+      return count > 0;
+    } catch (error) {
+      this.handleDatabaseError(error, 'exists');
+    }
   }
 
-  private toEntity(doc: any): Appointment {
+  private toEntity(doc: AppointmentDocument): Appointment {
     const props: AppointmentProps = {
       id: doc._id.toString(),
       clientId: doc.clientId,
@@ -154,23 +166,117 @@ export class MongoAppointmentRepository implements AppointmentRepository {
       status: doc.status as AppointmentStatus,
       reason: doc.reason,
       notes: doc.notes,
+      cancelledBy: doc.cancelledBy,
+      cancellationReason: doc.cancellationReason,
+      confirmedBy: doc.confirmedBy,
+      completedBy: doc.completedBy,
+      completedNotes: doc.completedNotes,
+      startedBy: doc.startedBy,
       createdAt: doc.createdAt,
       updatedAt: doc.updatedAt
     };
     return Appointment.create(props);
   }
 
-  private toDocument(appointment: Appointment): any { 
-  return {   
-    clientId: appointment.clientId,
-    patientId: appointment.patientId,
-    veterinarianId: appointment.veterinarianId,
-    appointmentDate: appointment.appointmentDate,
-    duration: appointment.duration,
-    status: appointment.status,
-    reason: appointment.reason,
-    notes: appointment.notes,
-    updatedAt: new Date()
-  };
-}
+  private toDocument(appointment: Appointment): Partial<AppointmentDocument> {
+    return {
+      clientId: appointment.clientId,
+      patientId: appointment.patientId,
+      veterinarianId: appointment.veterinarianId,
+      appointmentDate: appointment.appointmentDate,
+      duration: appointment.duration,
+      status: appointment.status,
+      reason: appointment.reason,
+      notes: appointment.notes,
+      cancelledBy: appointment.cancelledBy,
+      cancellationReason: appointment.cancellationReason,
+      confirmedBy: appointment.confirmedBy,
+      completedBy: appointment.completedBy,
+      completedNotes: appointment.completedNotes,
+      startedBy: appointment.startedBy,
+      updatedAt: new Date()
+    };
+  }
+
+  private handleDatabaseError(error: unknown, operation: string): never {
+    const context = `MongoAppointmentRepository.${operation}`;
+    
+    if (AppError.isAppError(error)) {
+      throw error;
+    }
+    
+    if (error instanceof Error && error.name === 'ValidationError') {
+      throw new ValidationError(
+        `Database validation failed: ${error.message}`,
+        error,
+        context
+      );
+    }
+    
+    if (error instanceof Error && error.name === 'CastError') {
+      throw new ValidationError(
+        'Invalid ID format',
+        error,
+        context
+      );
+    }
+    
+    if (this.isDuplicateKeyError(error)) {
+      throw new AppError(
+        'Duplicate appointment detected',
+        'DUPLICATE_APPOINTMENT',
+        error,
+        context
+      );
+    }
+    
+    throw new AppError(
+      `Database operation failed: ${operation}`,
+      'DATABASE_OPERATION_FAILED',
+      error,
+      context
+    );
+  }
+
+  private isDuplicateKeyError(error: unknown): boolean {
+    return error instanceof Error && 
+           'code' in error && 
+           error.code === 11000;
+  }
+
+  async countByStatus(status: AppointmentStatus): Promise<number> {
+    try {
+      return await this.model.countDocuments({ status }).exec();
+    } catch (error) {
+      this.handleDatabaseError(error, 'countByStatus');
+    }
+  }
+
+  async findByStatus(status: AppointmentStatus): Promise<Appointment[]> {
+    try {
+      const appointmentDocs = await this.model.find({ status })
+        .sort({ appointmentDate: 1 })
+        .exec();
+      return appointmentDocs.map(doc => this.toEntity(doc));
+    } catch (error) {
+      this.handleDatabaseError(error, 'findByStatus');
+    }
+  }
+
+  async getUpcomingAppointments(days: number = 7): Promise<Appointment[]> {
+    try {
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + days);
+      
+      const appointmentDocs = await this.model.find({
+        appointmentDate: { $gte: startDate, $lte: endDate },
+        status: { $in: [AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED] }
+      }).sort({ appointmentDate: 1 }).exec();
+      
+      return appointmentDocs.map(doc => this.toEntity(doc));
+    } catch (error) {
+      this.handleDatabaseError(error, 'getUpcomingAppointments');
+    }
+  } 
 }

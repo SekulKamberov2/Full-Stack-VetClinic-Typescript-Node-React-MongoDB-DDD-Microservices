@@ -9,4 +9,5 @@ export interface AppointmentRepository {
   save(appointment: Appointment): Promise<Appointment>;
   delete(id: string): Promise<void>;
   exists(id: string): Promise<boolean>;
+  findConflictingAppointments(veterinarianId: string, startTime: Date, duration: number ): Promise<Appointment[]>;
 }
