@@ -8,3 +8,4 @@ export { ErrorGuards } from './ErrorGuards';
 export { BaseController, AppResponse } from './BaseController';   
 export { RequestValidator } from './RequestValidator';
 export { AppRequest } from './AppRequest';  
+export { TooManyRequestsError } from './TooManyRequestsError';  

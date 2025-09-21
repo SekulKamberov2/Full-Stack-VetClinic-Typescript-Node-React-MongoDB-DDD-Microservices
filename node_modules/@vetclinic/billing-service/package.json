@@ -2,6 +2,7 @@
   "name": "@vetclinic/billing-service",
   "version": "1.0.0",
   "description": "Billing service for Veterinary Clinic - DDD",
+  "author": "Sekul Kamberov",
   "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon --exec ts-node src/index.ts",

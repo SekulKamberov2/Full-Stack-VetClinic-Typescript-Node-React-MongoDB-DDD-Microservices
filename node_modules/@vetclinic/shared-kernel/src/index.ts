@@ -7,3 +7,4 @@ export * from './errors/ErrorGuards';
 export * from './errors/ErrorHandler';
 export * from './errors/BaseController';
 export * from './errors/RequestValidator'; 
+export * from './errors/TooManyRequestsError'; 
