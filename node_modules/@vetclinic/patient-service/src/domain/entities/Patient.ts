@@ -48,6 +48,22 @@ export class Patient {
     });
   }
 
+  public partialUpdate(updateData: Partial<Omit<PatientProps, 'id' | 'createdAt' | 'ownerId'>>): Patient {
+    return new Patient({
+      id: this.id,
+      name: updateData.name ?? this.name,
+      species: updateData.species ?? this.species,
+      breed: updateData.breed ?? this.breed,
+      dateOfBirth: updateData.dateOfBirth ?? this.dateOfBirth,
+      medicalAlerts: updateData.medicalAlerts ?? this.medicalAlerts,
+      ownerId: this.ownerId,
+      isActive: updateData.isActive ?? this.isActive,
+      createdAt: this.createdAt,
+      updatedAt: new Date(),
+    });
+  }
+
+
   public updateMedicalAlerts(alerts: string[]): Patient {
     return new Patient({
       ...this,

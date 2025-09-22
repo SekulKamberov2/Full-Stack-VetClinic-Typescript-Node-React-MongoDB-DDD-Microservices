@@ -4,6 +4,7 @@ import { CreatePatientUseCase } from '../../application/use-cases/CreatePatientU
 import { GetPatientUseCase } from '../../application/use-cases/GetPatientUseCase';
 import { GetAllPatientsUseCase } from '../../application/use-cases/GetAllPatientsUseCase';
 import { UpdatePatientUseCase } from '../../application/use-cases/UpdatePatientUseCase';
+import { PartialUpdatePatientUseCase } from '../../application/use-cases/PartialUpdatePatientUseCase';
 import { DeletePatientUseCase } from '../../application/use-cases/DeletePatientUseCase';
 
 export class PatientController {
@@ -13,6 +14,7 @@ export class PatientController {
     private getPatientUseCase: GetPatientUseCase,
     private getAllPatientsUseCase: GetAllPatientsUseCase,
     private updatePatientUseCase: UpdatePatientUseCase,
+      private partialUpdatePatientUseCase: PartialUpdatePatientUseCase, 
     private deletePatientUseCase: DeletePatientUseCase
   ) {}
 
@@ -98,6 +100,23 @@ export class PatientController {
       });
     }
   }
+
+  async partialUpdatePatient(req: Request, res: Response): Promise<void> {
+    try {
+      const patient = await this.partialUpdatePatientUseCase.execute(req.params.id, req.body);
+      res.json({
+        success: true,
+        message: 'Patient partially updated successfully',
+        data: patient,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+
 
   async deletePatient(req: Request, res: Response): Promise<void> {
     try {

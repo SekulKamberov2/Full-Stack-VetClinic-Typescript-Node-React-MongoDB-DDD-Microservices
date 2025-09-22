@@ -10,15 +10,22 @@ export class UpdatePatientUseCase {
     breed: string;
     dateOfBirth: Date;
     medicalAlerts: string[];
+    isActive: boolean;
   }>): Promise<Patient> {
     const existingPatient = await this.patientRepository.findById(id);
     if (!existingPatient) {
       throw new Error('Patient not found');
     }
 
-    const updatedPatient = existingPatient.updateMedicalAlerts(
-      patientData.medicalAlerts || existingPatient.medicalAlerts
-    );
+    const updatedPatient = existingPatient.update({
+      name: patientData.name ?? existingPatient.name,
+      species: patientData.species ?? existingPatient.species,
+      breed: patientData.breed ?? existingPatient.breed,
+      dateOfBirth: patientData.dateOfBirth ?? existingPatient.dateOfBirth,
+      medicalAlerts: patientData.medicalAlerts ?? existingPatient.medicalAlerts,
+      isActive: patientData.isActive ?? existingPatient.isActive,
+    });
+
     await this.patientRepository.update(updatedPatient);
     return updatedPatient;
   }

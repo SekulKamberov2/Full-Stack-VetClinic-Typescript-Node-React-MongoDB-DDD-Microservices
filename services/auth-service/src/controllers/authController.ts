@@ -208,7 +208,7 @@ export const getProfile = async (req: AuthRequest, res: Response): Promise<void>
       message: 'Profile retrieved successfully',
       data: {
         user: {
-          id: req.user._id.toString(),
+          _id: req.user._id.toString(),
           email: req.user.email,
           role: req.user.role,
           firstName: req.user.firstName,

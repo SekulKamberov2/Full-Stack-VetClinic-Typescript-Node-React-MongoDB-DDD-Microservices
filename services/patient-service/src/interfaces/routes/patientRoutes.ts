@@ -22,7 +22,11 @@ export const createPatientRoutes = (patientController: PatientController) => {
  
   router.put('/patients/:id', (req, res) => 
     patientController.updatePatient(req, res)
-  );
+  ); 
+
+  router.patch('/patients/:id', (req, res) => 
+    patientController.partialUpdatePatient(req, res)
+  ); 
  
   router.delete('/patients/:id', (req, res) => 
     patientController.deletePatient(req, res)

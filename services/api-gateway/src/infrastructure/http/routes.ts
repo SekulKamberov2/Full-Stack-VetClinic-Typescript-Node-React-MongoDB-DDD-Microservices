@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { authenticate, authorize } from '../middleware/auth';
 import { createServiceProxy } from './proxy';
+import { authenticate, authorize } from '../../middleware/auth';
 
 const router = Router();
 
@@ -13,22 +13,29 @@ router.use((req, _res, next) => {
 
  
 router.use('/auth', createServiceProxy(
-  process.env.AUTH_SERVICE_URL || 'http://auth-service:3001',
-  { 
-    '^/auth': '/api/auth'
-  },
-  false
-));
-
-
-router.use('/clients', authenticate, createServiceProxy('http://client-service:3002', { '^/clients': '/' }));
-
+  process.env.AUTH_SERVICE_URL || 'http://auth-service:3001', { '^/auth': '/api/auth' }, false ));
+ 
 router.use(
   '/patients',
   authenticate,
-  authorize('vet', 'admin'),
-  createServiceProxy('http://patient-service:3003', { '^/patients': '/' })
+  authorize('vet', 'admin', 'client'),
+  createServiceProxy('http://patient-service:3003', {   
+    '^/patients': '/api/patients' 
+  }, true)
 );
+
+router.use(
+  '/clients',
+  authenticate,
+  authorize('vet', 'admin', 'client'),
+  createServiceProxy('http://client-service:3002', {   
+    '^/clients': '/api/clients' 
+  }, true)
+);
+
+//router.use('/clients', authenticate, createServiceProxy('http://client-service:3002', { '^/clients': '/' }));
+
+//router.use('/patients', authenticate, authorize('vet', 'admin', 'client'), createServiceProxy('http://patient-service:3003', { '^/patients': '/api/patients' }, true));
 
 router.use('/appointments', authenticate, createServiceProxy('http://appointment-service:3004', { '^/appointments': '/' }));
 

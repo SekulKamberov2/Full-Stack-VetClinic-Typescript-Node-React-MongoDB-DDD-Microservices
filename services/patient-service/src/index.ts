@@ -8,6 +8,7 @@ import { CreatePatientUseCase } from './application/use-cases/CreatePatientUseCa
 import { GetPatientUseCase } from './application/use-cases/GetPatientUseCase';
 import { GetAllPatientsUseCase } from './application/use-cases/GetAllPatientsUseCase';
 import { UpdatePatientUseCase } from './application/use-cases/UpdatePatientUseCase';
+import { PartialUpdatePatientUseCase } from './application/use-cases/PartialUpdatePatientUseCase'; 
 import { DeletePatientUseCase } from './application/use-cases/DeletePatientUseCase';
 import { PatientController } from './interfaces/controllers/PatientController';
 import { createPatientRoutes } from './interfaces/routes/patientRoutes';
@@ -42,6 +43,7 @@ const bootstrap = async () => {
     const getPatientUseCase = new GetPatientUseCase(patientRepository);
     const getAllPatientsUseCase = new GetAllPatientsUseCase(patientRepository);
     const updatePatientUseCase = new UpdatePatientUseCase(patientRepository);
+    const partialUpdatePatientUseCase = new PartialUpdatePatientUseCase(patientRepository);
     const deletePatientUseCase = new DeletePatientUseCase(patientRepository);
 
     const patientController = new PatientController(
@@ -50,6 +52,7 @@ const bootstrap = async () => {
       getPatientUseCase,
       getAllPatientsUseCase,
       updatePatientUseCase,
+      partialUpdatePatientUseCase,
       deletePatientUseCase
     );
 
@@ -83,7 +86,7 @@ const bootstrap = async () => {
     });
     
     const gracefulShutdown = async (signal: string) => {
-      console.log(`\n Received ${signal}. Starting graceful shutdown...`);
+      console.log(`Received ${signal}. Starting graceful shutdown...`);
       
       try {
         await eventConsumer.disconnect();
