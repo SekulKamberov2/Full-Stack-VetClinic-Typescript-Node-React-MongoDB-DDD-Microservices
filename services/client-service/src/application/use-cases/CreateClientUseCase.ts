@@ -8,6 +8,7 @@ export class CreateClientUseCase {
   ) {}
 
   async execute(clientData: {
+    id?: string;
     firstName: string;
     lastName: string;
     email: string;
@@ -33,17 +34,26 @@ export class CreateClientUseCase {
         );
       }
   
-      const client = Client.create(clientData);
+      const clientId = clientData.id;
+
+      const completeClientData = {
+        _id: clientId,
+        firstName: clientData.firstName,
+        lastName: clientData.lastName,
+        email: clientData.email,
+        phone: clientData.phone,
+        address: clientData.address,
+        pets: [],
+        isActive: true
+      };
+
+      console.log('CreateClientUseCase: Creating client with ID:', clientId);
+
+      const client = Client.create(completeClientData);
+
       const savedClient = await this.clientRepository.save(client);
 
-      // Publish domain event with actual MongoDB ID
-      // await this.eventPublisher.publish('ClientCreated', {
-      //   clientId: savedClient.id,  // Use the ID from saved client
-      //   firstName: savedClient.firstName,
-      //   lastName: savedClient.lastName,
-      //   email: savedClient.email,
-      //   phone: savedClient.phone,
-      // });
+      console.log('CreateClientUseCase: Client created with ID:', savedClient._id);
 
       return savedClient;  
     } catch (error) {
@@ -52,6 +62,7 @@ export class CreateClientUseCase {
   }
 
   private validateClientData(clientData: {
+    id?: string;
     firstName: string;
     lastName: string;
     email: string;

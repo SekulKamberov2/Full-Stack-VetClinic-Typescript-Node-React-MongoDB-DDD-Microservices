@@ -1,11 +1,22 @@
 export type Role = 'admin' | 'vet' | 'staff' | 'client';
 
+export interface Address {
+  street: string;
+  city: string;
+  state: string;
+  country: string;
+  zipCode: string;
+}
+
 export interface User {
-  _id: string;
+  id: string;
   email: string;
   role: Role;
   firstName: string;
   lastName: string;
+  phone?: string;
+  profileImage?: string;
+  address?: Address;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -17,6 +28,8 @@ export interface RegisterData {
   role: Role;
   firstName: string;
   lastName: string;
+  phone?: string;
+  address?: Address;
 }
 
 export interface LoginData {
@@ -31,4 +44,6 @@ interface FormData {
   password: string;
   confirmPassword: string;
   role: Role;
+  phone?: string;
+  address?: Address;
 }

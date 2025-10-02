@@ -1,7 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { api } from '../services/authService';
-import { Patient } from '../models/Patient';
-import { RootState } from '.';
+import { Patient } from '../models/Patient'; 
 
 interface PatientsState {
   patients: Patient[];
@@ -15,18 +14,11 @@ const initialState: PatientsState = {
   error: null,
 };
 
-export const fetchPatients = createAsyncThunk<Patient[], void, { state: RootState }>(
+export const fetchPatients = createAsyncThunk<Patient[]>(
   'patients/fetchAll',
-  async (_, { rejectWithValue, getState }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      const token = getState().auth.token || localStorage.getItem('token');
-      const res = await api.get<{ success: boolean; data: Patient[] }>('/patients', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      console.log('patients', res.data.data);
+      const res = await api.get<{ success: boolean; data: Patient[] }>('/patients'); 
       return res.data.data;
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.message || 'Failed to load patients');
@@ -35,7 +27,7 @@ export const fetchPatients = createAsyncThunk<Patient[], void, { state: RootStat
 );
 
 const patientsSlice = createSlice({
-  name: 'patient',
+  name: 'patients',
   initialState,
   reducers: {},
   extraReducers: (builder) => {

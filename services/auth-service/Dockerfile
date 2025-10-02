@@ -11,12 +11,14 @@ COPY services/auth-service/package*.json ./
 COPY services/auth-service/tsconfig.json ./
 
 RUN npm install
-
 RUN npm install ./shared-kernel
 
 COPY services/auth-service/src ./src
 
 RUN npm run build
+
+RUN ls -la dist/events/ || echo "Events directory not found in dist"
+RUN find dist/ -name "*ClientCreatedEvent*" || echo "ClientCreatedEvent not found"
 
 RUN npm ci --only=production
 

@@ -1,55 +1,114 @@
 import axios from 'axios';
-import { User, LoginData, RegisterData } from '../models/User';
+import { Client, LoginData, RegisterData } from '../models/Client';
 
 export const api = axios.create({
   baseURL: 'http://localhost:3000',
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 });
 
-const token = localStorage.getItem('token');
-if (token) api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+export const clientApi = axios.create({
+  baseURL: 'http://localhost:3002',
+  timeout: 10000,
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
+});
 
 export interface AuthResponse {
   success: boolean;
   message: string;
   data: {
-    user: User;
-    token: string;
+    user: Client; 
+    token?: string;
   };
 }
 
+export interface ProfileResponse {
+  success: boolean;
+  data: Client;
+}
+
 export const authService = {
-  login: async (loginData: LoginData): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/auth/login', loginData);
-    const token = response.data.data?.token;
-    if (token) {
-      localStorage.setItem('token', token);
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  login: async (loginData: LoginData): Promise<boolean> => {
+    try {
+      const response = await api.post<boolean>('/auth/login', loginData);
+      return response ? true : false;
+    } catch (error: any) {
+      console.error('Login error:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || 'Login failed');
     }
-    return response.data;
   },
 
   register: async (registerData: RegisterData): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/auth/register', registerData);
-    const token = response.data.data?.token;
-    if (token) {
-      localStorage.setItem('token', token);
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    try {
+      const response = await api.post<AuthResponse>('/auth/register', registerData);
+      return response.data;
+    } catch (error: any) {
+      console.error('Register error:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || 'Registration failed');
     }
-    return response.data;
   },
 
-  getProfile: async (): Promise<{ success: boolean; data: { user: User } }> => {
-    const response = await api.get('/auth/profile');
-    return response.data;
+  getProfile: async (): Promise<ProfileResponse> => {
+    try {
+      const response = await api.get<ProfileResponse>('/profile');
+      return response.data;
+    } catch (error: any) {
+      
+      try {
+        const response = await api.get<ProfileResponse>('/clients/profile');
+        return response.data;
+      } catch (secondError: any) {
+        
+        try {
+          const response = await clientApi.get<ProfileResponse>('/profile');
+          return response.data;
+        } catch (finalError: any) {
+          console.error('All profile endpoints failed:');
+          console.error('API Gateway error:', error.response?.data || error.message);
+          console.error('Fallback error:', secondError.response?.data || secondError.message);
+          console.error('Client service error:', finalError.response?.data || finalError.message);
+          
+          throw new Error(
+            finalError.response?.data?.message || 
+            'Failed to load profile from all available endpoints'
+          );
+        }
+      }
+    }
   },
 
-  logout: (): void => {
-    localStorage.removeItem('token');
-    delete api.defaults.headers.common['Authorization'];
+  logout: async (): Promise<void> => {
+    try {
+      await api.post('/auth/logout');
+    } catch (error: any) {
+      console.error('Logout error:', error.response?.data || error.message);
+    }
   },
 
-  getToken: (): string | null => localStorage.getItem('token'),
-  isAuthenticated: (): boolean => !!localStorage.getItem('token'),
+  getToken: (): string | null => {
+    return localStorage.getItem('authToken') || null;
+  },
+
+  isAuthenticated: (): boolean => {
+    const token = authService.getToken();
+    return !!token;
+  },
+
+  verifyAuth: async (): Promise<{ success: boolean; client?: Client }> => {
+    try {
+      const response = await api.get<ProfileResponse>('/profile');
+      return { success: true, client: response.data.data };
+    } catch (error: any) {
+      console.log('Auth verification failed:', error.response?.data || error.message);
+      
+      try {
+        const response = await api.get<ProfileResponse>('/clients/profile');
+        return { success: true, client: response.data.data };
+      } catch (fallbackError) {
+        return { success: false };
+      }
+    }
+  }
 };

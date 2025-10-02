@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { loginUser, clearError } from '../store/authSlice';
@@ -26,8 +26,7 @@ const Input = styled.input`
   border: 1px solid #ddd;
   border-radius: 9px;
   font-size: 16px;
-
-    outline: none; /* removes default blue outline */
+  outline: none;
 
   &:focus {
     border-color: orange;
@@ -84,8 +83,32 @@ const Credentials = styled.div`
   color: #434367ff;  
   font-size: 0.9rem;
   font-weight: 400;
- 
+  margin-bottom: 1rem;
 `;  
+
+const SuccessMessage = styled.div`
+  color: #22c55e;
+  background: #f0fdf4;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  border: 1px solid #bbf7d0;
+  text-align: center;
+`;
+
+const LoadingSpinner = styled.div`
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 1s ease-in-out infinite;
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+`;
 
 const Login: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -94,42 +117,88 @@ const Login: React.FC = () => {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showSuccess, setShowSuccess] = useState(false);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/profile');
-    }
-  }, [isAuthenticated, navigate]);
-
-  useEffect(() => {
-    dispatch(clearError());
-  }, [dispatch]);
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    dispatch(loginUser({ email, password }));
+    setShowSuccess(false);
+    
+    dispatch(clearError());
+    
+    const result = await dispatch(loginUser({ email, password }));
+    
+    if (loginUser.fulfilled.match(result)) {
+      setShowSuccess(true);
+      setTimeout(() => {
+        navigate('/profile');
+      }, 1000);
+    }
   };
+
+  const fillDemoCredentials = () => {
+    setEmail('sekul19@google.com');
+    setPassword('clientpassword');
+  };
+
+  if (isAuthenticated) {
+    navigate('/profile');
+    return null;
+  }
 
   return (
     <FormContainer>
       <Header>Login</Header>
+      
+      {showSuccess && (
+        <SuccessMessage>
+          Login successful! Redirecting to profile...
+        </SuccessMessage>
+      )}
+      
       {error && <ErrorMessage>{error}</ErrorMessage>}
-      <Credentials>sekul@google.com | clientpassword</Credentials>
+      
+      <Credentials>
+        <div>Demo Credentials:</div>
+        <div>sekul19@google.com | clientpassword</div>
+        <Button 
+          type="button" 
+          onClick={fillDemoCredentials}
+          style={{ 
+            marginTop: '0.5rem', 
+            background: 'transparent', 
+            color: '#434367ff', 
+            border: '1px solid #434367ff',
+            fontSize: '0.8rem',
+            padding: '6px 12px'
+          }}
+        >
+          Fill Demo Credentials
+        </Button>
+      </Credentials>
+      
       <form onSubmit={handleSubmit}>
         <Input
           type="email"
+          placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
         />
         <Input
           type="password"
+          placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
         />
         <Button type="submit" disabled={loading}>
-          {loading ? 'Logging in...' : 'Login'}
+          {loading ? (
+            <>
+              <LoadingSpinner /> Logging in...
+            </>
+          ) : (
+            'Login'
+          )}
         </Button>
       </form>
     </FormContainer>

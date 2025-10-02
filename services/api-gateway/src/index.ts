@@ -36,7 +36,6 @@ app.use((req, _res, next) => {
   console.log('URL:', req.url);
   console.log('Headers:', req.headers);
   console.log('Body:', req.body);
-  console.log('-------------------------');
   next();
 });
 

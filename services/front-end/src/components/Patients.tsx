@@ -89,6 +89,7 @@ const Patients: React.FC = () => {
         <Table>
           <thead>
             <tr>
+              <Th>ID</Th>
               <Th>Name</Th>
               <Th>Species</Th>
               <Th>Breed</Th>
@@ -104,6 +105,7 @@ const Patients: React.FC = () => {
                   onClick={() => toggleRow(index)}
                   style={{ cursor: 'pointer' }}
                 >
+                  <Td>{patient._id}</Td>
                   <Td>{patient.name}</Td>
                   <Td>{patient.species}</Td>
                   <Td>{patient.breed}</Td>

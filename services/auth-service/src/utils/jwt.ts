@@ -20,7 +20,7 @@ export class JWTError extends Error {
 
 export const generateToken = (user: IUser): string => {
   const secret = process.env.JWT_SECRET;
-  
+  console.log('AUTH SERVICE ===================>', secret)
   if (!secret) {
     throw new JWTError('JWT_SECRET is not defined in environment variables');
   }
@@ -34,6 +34,7 @@ export const generateToken = (user: IUser): string => {
   };
  
   const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
+  console.log('AUTH SERVICE ===================>', expiresIn)
   const signOptions: SignOptions = {};
  
   if (expiresIn) {

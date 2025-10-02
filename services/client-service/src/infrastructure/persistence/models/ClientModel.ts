@@ -5,6 +5,7 @@ export interface IClientDocument extends Document {
   lastName: string;
   email: string;
   phone: string;
+  profileImage?: string;
   address: {
     street: string;
     city: string;
@@ -12,6 +13,7 @@ export interface IClientDocument extends Document {
     zipCode: string;
     country: string;
   };
+  pets: mongoose.Types.ObjectId[]; 
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -52,10 +54,15 @@ const ClientSchema = new Schema<IClientDocument>(
       required: true, 
       trim: true 
     },
+    profileImage: { 
+      type: String,
+      default: null 
+    },
     address: { 
       type: AddressSchema, 
       required: true 
     },
+    pets: [{ type: Schema.Types.ObjectId, ref: 'Pet' }],
     isActive: { 
       type: Boolean, 
       default: true,
@@ -67,6 +74,7 @@ const ClientSchema = new Schema<IClientDocument>(
   }
 );
 
+ClientSchema.index({ pets: 1 });
 ClientSchema.index({ firstName: 1, lastName: 1 });
 ClientSchema.index({ isActive: 1, createdAt: -1 });
 ClientSchema.index({ 'address.state': 1, isActive: 1 });

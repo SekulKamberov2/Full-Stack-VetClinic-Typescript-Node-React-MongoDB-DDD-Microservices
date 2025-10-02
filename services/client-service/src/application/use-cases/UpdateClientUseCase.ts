@@ -128,7 +128,7 @@ export class UpdateClientUseCase {
     }
 
     if (address.zipCode !== undefined) {
-      const zipCodeRegex = /^\d{5}(-\d{4})?$/;
+      const zipCodeRegex = /^\d{5}(-\d{4})?$/; //12345-6789
       if (!zipCodeRegex.test(address.zipCode)) {
         throw new ValidationError("Invalid zip code format", undefined, context);
       } 

@@ -17,6 +17,7 @@
     "dotenv": "^16.0.3",
     "zod": "^3.21.4",
     "amqplib": "^0.10.3",
+    "jsonwebtoken": "^9.0.2",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
@@ -24,6 +25,7 @@
     "@types/cors": "^2.8.13",
     "@types/node": "^18.14.0",
     "@types/amqplib": "^0.8.2",
+    "@types/jsonwebtoken": "^9.0.2",
     "@types/uuid": "^9.0.1",
     "nodemon": "^2.0.22",
     "ts-node": "^10.9.1",

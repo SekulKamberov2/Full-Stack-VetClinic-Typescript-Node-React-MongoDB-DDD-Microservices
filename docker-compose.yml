@@ -80,6 +80,7 @@ services:
       - NODE_ENV=production
       - PORT=3002
       - MONGODB_URI=mongodb://mongodb:27017/vetclinic-clients
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production-12345
       - RABBITMQ_URL=amqp://vetuser:vetpass123@rabbitmq:5672/vetclinic
       - CLIENT_CREATED_EXCHANGE=client_events
     depends_on:
@@ -108,6 +109,7 @@ services:
       - NODE_ENV=production
       - PORT=3003
       - MONGODB_URI=mongodb://mongodb:27017/vetclinic-patients
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production-12345
       - RABBITMQ_URL=amqp://vetuser:vetpass123@rabbitmq:5672/vetclinic
       - CLIENT_CREATED_QUEUE=client_created_queue
       - CLIENT_CREATED_EXCHANGE=client_events
@@ -137,6 +139,7 @@ services:
       - NODE_ENV=production
       - PORT=3004
       - MONGODB_URI=mongodb://mongodb:27017/vetclinic-appointments
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production-12345
       - RABBITMQ_URL=amqp://vetuser:vetpass123@rabbitmq:5672/vetclinic
       - APPOINTMENT_EVENTS_EXCHANGE=appointment_events
     depends_on:
@@ -165,6 +168,7 @@ services:
       - NODE_ENV=production
       - PORT=3006
       - MONGODB_URI=mongodb://mongodb:27017/vetclinic-medical-records
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production-12345
       - RABBITMQ_URL=amqp://vetuser:vetpass123@rabbitmq:5672/vetclinic
       - MEDICAL_RECORD_EVENTS_EXCHANGE=medical_record_events
       - APPOINTMENT_EVENTS_EXCHANGE=appointment_events
@@ -200,6 +204,7 @@ services:
       - NODE_ENV=production
       - PORT=3005
       - MONGODB_URI=mongodb://mongodb:27017/vetclinic-billing
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production-12345
       - RABBITMQ_URL=amqp://vetuser:vetpass123@rabbitmq:5672/vetclinic
       - BILLING_EVENTS_EXCHANGE=billing_events
       - APPOINTMENT_EVENTS_EXCHANGE=appointment_events
@@ -233,6 +238,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production-12345
       - AUTH_SERVICE_URL=http://auth-service:3001
       - CLIENT_SERVICE_URL=http://client-service:3002
       - PATIENT_SERVICE_URL=http://patient-service:3003

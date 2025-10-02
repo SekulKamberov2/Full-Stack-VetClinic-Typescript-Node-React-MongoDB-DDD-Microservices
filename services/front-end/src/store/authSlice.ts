@@ -1,53 +1,70 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { User, LoginData, RegisterData } from '../models/User';
+import { Client, LoginData, RegisterData } from '../models/Client';
 import { authService } from '../services/authService';
 
 interface AuthState {
-  user: User | null;
-  token: string | null;
+  client: Client | null;
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
+  initialized: boolean;
 }
 
 const initialState: AuthState = {
-  user: JSON.parse(localStorage.getItem('user') || 'null'),
-  token: authService.getToken(),
-  isAuthenticated: authService.isAuthenticated(),
+  client: null,
+  isAuthenticated: false,
   loading: false,
   error: null,
+  initialized: false,
 };
 
-export const loginUser = createAsyncThunk<{ user: User; token: string }, LoginData>(
+export const verifyAuth = createAsyncThunk<Client>(
+  'auth/verify',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await authService.getProfile();
+      return response.data;
+    } catch (err: any) {
+      return rejectWithValue('Not authenticated');
+    }
+  }
+);
+
+export const loginUser = createAsyncThunk<void, LoginData>(
   'auth/login',
   async (loginData, { rejectWithValue }) => {
     try {
       const response = await authService.login(loginData);
-      return response.data;
+      if (response) {
+        return;
+      } else {
+        return rejectWithValue('Login failed');
+      }
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.message || 'Login failed');
     }
   }
 );
 
-export const registerUser = createAsyncThunk<{ user: User; token: string }, RegisterData>(
+export const registerUser = createAsyncThunk<{ client: Client }, RegisterData>(
   'auth/register',
   async (registerData, { rejectWithValue }) => {
     try {
       const response = await authService.register(registerData);
-      return response.data;
+      return { client: response.data.user };
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.message || 'Registration failed');
     }
   }
 );
 
-export const fetchUserProfile = createAsyncThunk<User>(
+export const fetchClientProfile = createAsyncThunk<Client>(
   'auth/fetchProfile',
   async (_, { rejectWithValue }) => {
     try {
       const response = await authService.getProfile();
-      return response.data.user;
+      console.log('fetchClientProfile', response.data);
+      return response.data;
     } catch (err: any) {
       return rejectWithValue('Failed to fetch profile');
     }
@@ -59,70 +76,94 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     logout: (state) => {
-      state.user = null;
-      state.token = null;
+      state.client = null;
       state.isAuthenticated = false;
       state.error = null;
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
       authService.logout();
     },
     clearError: (state) => {
       state.error = null;
     },
-    setUser: (state, action: { payload: User }) => {
-      state.user = action.payload;
+    setClient: (state, action: { payload: Client }) => {
+      state.client = action.payload;
       state.isAuthenticated = true;
-      localStorage.setItem('user', JSON.stringify(action.payload));
+    },
+    updateClient: (state, action: { payload: Partial<Client> }) => {
+      if (state.client) {
+        state.client = { ...state.client, ...action.payload };
+      }
     },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(loginUser.pending, (state) => { state.loading = true; state.error = null; })
-      .addCase(loginUser.fulfilled, (state, action) => {
+      .addCase(loginUser.pending, (state) => { 
+        state.loading = true; 
+        state.error = null; 
+      })
+      .addCase(loginUser.fulfilled, (state) => {
         state.loading = false;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
         state.isAuthenticated = true;
-        localStorage.setItem('token', action.payload.token);
-        localStorage.setItem('user', JSON.stringify(action.payload.user));
+        state.initialized = true;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
         state.error = typeof action.payload === 'string' ? action.payload : 'Login failed';
         state.isAuthenticated = false;
+        state.initialized = true;
       })
-      .addCase(registerUser.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(registerUser.pending, (state) => { 
+        state.loading = true; 
+        state.error = null; 
+      })
       .addCase(registerUser.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
+        state.client = action.payload.client;
         state.isAuthenticated = true;
-        localStorage.setItem('token', action.payload.token);
-        localStorage.setItem('user', JSON.stringify(action.payload.user));
+        state.initialized = true;
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;
         state.error = typeof action.payload === 'string' ? action.payload : 'Registration failed';
         state.isAuthenticated = false;
+        state.initialized = true;
       })
-      .addCase(fetchUserProfile.pending, (state) => { state.loading = true; state.error = null; })
-      .addCase(fetchUserProfile.fulfilled, (state, action) => {
+      .addCase(verifyAuth.pending, (state) => { 
+        state.loading = true; 
+      })
+      .addCase(verifyAuth.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload;
+        state.client = action.payload;
         state.isAuthenticated = true;
-        localStorage.setItem('user', JSON.stringify(action.payload));
+        state.initialized = true;
       })
-      .addCase(fetchUserProfile.rejected, (state, action) => {
+      .addCase(verifyAuth.rejected, (state) => {
+        state.loading = false;
+        state.client = null;
+        state.isAuthenticated = false;
+        state.initialized = true;
+      })
+      .addCase(fetchClientProfile.pending, (state) => { 
+        state.loading = true; 
+      })
+      .addCase(fetchClientProfile.fulfilled, (state, action) => {
+        state.loading = false;
+        state.client = action.payload;
+        state.isAuthenticated = true;
+      })
+      .addCase(fetchClientProfile.rejected, (state, action) => {
         state.loading = false;
         state.error = typeof action.payload === 'string' ? action.payload : 'Failed to fetch profile';
-        state.token = null;
-        state.isAuthenticated = false;
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
       });
   },
 });
 
-export const { logout, clearError, setUser } = authSlice.actions;
+export const { logout, clearError, setClient, updateClient } = authSlice.actions;
+
+export const selectClient = (state: { auth: AuthState }) => state.auth.client;
+export const selectIsAuthenticated = (state: { auth: AuthState }) => state.auth.isAuthenticated;
+export const selectAuthLoading = (state: { auth: AuthState }) => state.auth.loading;
+export const selectAuthError = (state: { auth: AuthState }) => state.auth.error;
+export const selectAuthInitialized = (state: { auth: AuthState }) => state.auth.initialized;
+export const selectClientPets = (state: { auth: AuthState }) => state.auth.client?.pets || [];
+
 export default authSlice.reducer;
