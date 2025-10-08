@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../store/authSlice';
@@ -168,10 +168,12 @@ const InfoGrid = styled.div`
   gap: 7rem; 
   font-size: 1.3rem;
 `;
+
 const PetCardContent = styled.div`
   position: relative;
   z-index: 5;
 `;
+
 const InfoCard = styled.div` 
   padding: 1.5rem; 
   
@@ -261,6 +263,7 @@ const PetCard = styled.div<{ isExpanded?: boolean }>`
   overflow: visible;
   min-height: 120px;
 `;
+
 const ExpandIcon = styled.span<{ isExpanded: boolean }>`
   font-size: 1.5rem;
   transition: transform 0.3s ease;
@@ -503,20 +506,91 @@ const FormSelect = styled.select`
   }
 `;
 
-const Profile: React.FC = () => {
+const PetCardComponent = React.memo(({ 
+  pet, 
+  isExpanded, 
+  onToggle, 
+  onEdit, 
+  onDelete, 
+  formatDate 
+}: { 
+  pet: any;
+  isExpanded: boolean;
+  onToggle: (petId: string, e: React.MouseEvent) => void;
+  onEdit: (pet: any, e: React.MouseEvent) => void;
+  onDelete: (pet: any, e: React.MouseEvent) => void;
+  formatDate: (date: string) => string;
+}) => (
+  <PetCard 
+    key={pet._id} 
+    isExpanded={isExpanded}
+    onClick={(e) => onToggle(pet._id, e)}
+  >
+    <PetCardContent>
+      <InfoItem> 
+        <StatusBadge isActive={pet.isActive}>
+          {pet.isActive ? 'Active' : 'Inactive'}
+        </StatusBadge>
+      </InfoItem>
+      <PetHeader>
+        {pet.name}
+        <ExpandIcon isExpanded={isExpanded}>▼</ExpandIcon>
+      </PetHeader>
+    </PetCardContent>
+    
+    <PetDetails isExpanded={isExpanded}>
+      <InlineWrapper><strong>Species:</strong><span>{pet.species}</span></InlineWrapper>
+      <InlineWrapper><strong>Breed:</strong><span>{pet.breed}</span></InlineWrapper>
+      <InlineWrapper><strong>Age:</strong><span>{pet.age} years</span></InlineWrapper>
+      <InlineWrapper><strong>Weight:</strong><span>{pet.weight} kg</span></InlineWrapper>
+      <InlineWrapper><strong>Color:</strong><span>{pet.color}</span></InlineWrapper>
+      <InlineWrapper><strong>Gender:</strong><span>{pet.gender}</span></InlineWrapper>
+      <InlineWrapper><strong>Birth Date:</strong><span>{formatDate(pet.dateOfBirth)}</span></InlineWrapper>
+      <InlineWrapper><strong>Microchip:</strong><span>{pet.microchipNumber || 'N/A'}</span></InlineWrapper>
+      <InlineWrapper><strong>Insurance:</strong><span>{pet.insuranceNumber || 'N/A'}</span></InlineWrapper>
+    </PetDetails>
+    
+    <PetActions isExpanded={isExpanded}>
+      <PetActionButton 
+        className="edit" 
+        onClick={(e) => {
+          e.stopPropagation();
+          onEdit(pet, e);
+        }}
+      >
+        Edit
+      </PetActionButton>
+      <PetActionButton 
+        className="delete" 
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(pet, e);
+        }}
+      >
+        Delete
+      </PetActionButton>
+    </PetActions>
+  </PetCard>
+));
+
+PetCardComponent.displayName = 'PetCardComponent';
+
+const Profile: React.FC = React.memo(() => {
   const dispatch = useAppDispatch();
-  const navigate = useNavigate(); 
-  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const navigate = useNavigate();  
+  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
   const profile = useSelector(selectProfile);
   const loading = useSelector(selectProfileLoading);
   const error = useSelector(selectProfileError); 
   
   const [expandedPets, setExpandedPets] = useState<Set<string>>(new Set());
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showAddPetModal, setShowAddPetModal] = useState(false);
-  const [showEditPetModal, setShowEditPetModal] = useState(false);
-  const [showDeletePetModal, setShowDeletePetModal] = useState(false);
+  const [modalState, setModalState] = useState({
+    showEditModal: false,
+    showDeleteModal: false,
+    showAddPetModal: false,
+    showEditPetModal: false,
+    showDeletePetModal: false
+  });
   const [deleteMessage, setDeleteMessage] = useState(false);
   const [selectedPet, setSelectedPet] = useState<any>(null);
   const [formData, setFormData] = useState({
@@ -546,14 +620,16 @@ const Profile: React.FC = () => {
     insuranceNumber: ''
   });
 
+  const profileInitials = useMemo(() => {
+    return profile ? `${profile.firstName?.charAt(0) || ''}${profile.lastName?.charAt(0) || ''}`.toUpperCase() : '';
+  }, [profile?.firstName, profile?.lastName]);
+
+  const petsCount = useMemo(() => profile?.pets?.length || 0, [profile?.pets]);
+
   const handleLogout = useCallback(() => {
     dispatch(logout());
     navigate('/login');
   }, [dispatch, navigate]);
-
-  const getInitials = useCallback((profile: any) => {
-    return `${profile?.firstName?.charAt(0) || ''}${profile?.lastName?.charAt(0) || ''}`.toUpperCase();
-  }, []);
 
   const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -576,7 +652,18 @@ const Profile: React.FC = () => {
     });
   }, []);
 
-  const handleEditProfile = () => {
+  const handleCloseModals = useCallback(() => {
+    setModalState({
+      showEditModal: false,
+      showDeleteModal: false,
+      showAddPetModal: false,
+      showEditPetModal: false,
+      showDeletePetModal: false
+    });
+    setSelectedPet(null);
+  }, []);
+
+  const handleEditProfile = useCallback(() => {
     if (profile) {
       setFormData({
         firstName: profile.firstName,
@@ -592,14 +679,14 @@ const Profile: React.FC = () => {
         }
       });
     }
-    setShowEditModal(true);
-  };
+    setModalState(prev => ({ ...prev, showEditModal: true }));
+  }, [profile]);
 
-  const handleDeleteProfile = () => {
-    setShowDeleteModal(true);
-  };
+  const handleDeleteProfile = useCallback(() => {
+    setModalState(prev => ({ ...prev, showDeleteModal: true }));
+  }, []);
 
-  const handleAddPet = () => {
+  const handleAddPet = useCallback(() => {
     setPetFormData({
       name: '',
       species: '',
@@ -612,10 +699,10 @@ const Profile: React.FC = () => {
       microchipNumber: '',
       insuranceNumber: ''
     });
-    setShowAddPetModal(true);
-  };
+    setModalState(prev => ({ ...prev, showAddPetModal: true }));
+  }, []);
 
-  const handleEditPet = (pet: any, e: React.MouseEvent) => {
+  const handleEditPet = useCallback((pet: any, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedPet(pet);
     setPetFormData({
@@ -630,28 +717,19 @@ const Profile: React.FC = () => {
       microchipNumber: pet.microchipNumber || '',
       insuranceNumber: pet.insuranceNumber || ''
     });
-    setShowEditPetModal(true);
-  };
+    setModalState(prev => ({ ...prev, showEditPetModal: true }));
+  }, []);
 
-  const handleDeletePet = (pet: any, e: React.MouseEvent) => {
+  const handleDeletePet = useCallback((pet: any, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedPet(pet);
-    setShowDeletePetModal(true);
-  };
+    setModalState(prev => ({ ...prev, showDeletePetModal: true }));
+  }, []);
 
-  const handleCloseModals = () => {
-    setShowEditModal(false);
-    setShowDeleteModal(false);
-    setShowAddPetModal(false);
-    setShowEditPetModal(false);
-    setShowDeletePetModal(false);
-    setSelectedPet(null);
-  };
-
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = useCallback(async () => {
     try {
       await dispatch(deleteProfile()).unwrap();
-      setShowDeleteModal(false);
+      setModalState(prev => ({ ...prev, showDeleteModal: false }));
       setDeleteMessage(true);
       setTimeout(() => {
         navigate('/login');
@@ -659,9 +737,9 @@ const Profile: React.FC = () => {
     } catch (error) {
       console.error('Failed to delete profile:', error);
     }
-  };
+  }, [dispatch, navigate]);
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = useCallback(async () => {
     try {
       if (profile) {
         const updatedData = {
@@ -675,89 +753,89 @@ const Profile: React.FC = () => {
         };
         
         await dispatch(updateProfile(updatedData)).unwrap();
-        setShowEditModal(false);
+        setModalState(prev => ({ ...prev, showEditModal: false }));
         dispatch(fetchProfile());
       }
     } catch (error) {
       console.error('Failed to update profile:', error);
     }
-  };
+  }, [profile, formData, dispatch]);
 
-  const handleSavePet = async () => {
-  try {
-    if (showAddPetModal) {
-      const petData = {
-        name: petFormData.name,
-        species: petFormData.species,
-        breed: petFormData.breed,
-        age: parseInt(petFormData.age),
-        dateOfBirth: petFormData.dateOfBirth,
-        weight: parseFloat(petFormData.weight),
-        color: petFormData.color,
-        gender: petFormData.gender as 'Male' | 'Female',
-        microchipNumber: petFormData.microchipNumber || undefined,
-        insuranceNumber: petFormData.insuranceNumber || undefined,
-        dietaryRestrictions: [],
-        vaccinationRecords: [],
-        awards: [],
-        isActive: true,
-        clientId: profile?.id
-      };
-      
-      const response = await petService.createPet(petData);
-      
-      if (response.success) {
-        setShowAddPetModal(false); 
-        dispatch(fetchProfile());
+  const handleSavePet = useCallback(async () => {
+    try {
+      if (modalState.showAddPetModal) {
+        const petData = {
+          name: petFormData.name,
+          species: petFormData.species,
+          breed: petFormData.breed,
+          age: parseInt(petFormData.age),
+          dateOfBirth: petFormData.dateOfBirth,
+          weight: parseFloat(petFormData.weight),
+          color: petFormData.color,
+          gender: petFormData.gender as 'Male' | 'Female',
+          microchipNumber: petFormData.microchipNumber || undefined,
+          insuranceNumber: petFormData.insuranceNumber || undefined,
+          dietaryRestrictions: [],
+          vaccinationRecords: [],
+          awards: [],
+          isActive: true,
+          clientId: profile?.id
+        };
+        
+        const response = await petService.createPet(petData);
+        
+        if (response.success) {
+          setModalState(prev => ({ ...prev, showAddPetModal: false }));
+          dispatch(fetchProfile());
+        }
+      } else if (modalState.showEditPetModal && selectedPet) { 
+        const petData = {
+          name: petFormData.name,
+          species: petFormData.species,
+          breed: petFormData.breed,
+          age: parseInt(petFormData.age),
+          dateOfBirth: petFormData.dateOfBirth,
+          weight: parseFloat(petFormData.weight),
+          color: petFormData.color,
+          gender: petFormData.gender as 'Male' | 'Female',
+          microchipNumber: petFormData.microchipNumber || undefined,
+          insuranceNumber: petFormData.insuranceNumber || undefined
+        };
+         
+        const response = await petService.updatePet(selectedPet._id, petData);
+        
+        if (response.success) {
+          setModalState(prev => ({ ...prev, showEditPetModal: false }));
+          setSelectedPet(null); 
+          dispatch(fetchProfile());
+        }
       }
-    } else if (showEditPetModal && selectedPet) { 
-      const petData = {
-        name: petFormData.name,
-        species: petFormData.species,
-        breed: petFormData.breed,
-        age: parseInt(petFormData.age),
-        dateOfBirth: petFormData.dateOfBirth,
-        weight: parseFloat(petFormData.weight),
-        color: petFormData.color,
-        gender: petFormData.gender as 'Male' | 'Female',
-        microchipNumber: petFormData.microchipNumber || undefined,
-        insuranceNumber: petFormData.insuranceNumber || undefined
-      };
-       
-      const response = await petService.updatePet(selectedPet._id, petData);
-      
-      if (response.success) {
-        setShowEditPetModal(false);
-        setSelectedPet(null); 
-        dispatch(fetchProfile());
-      }
+    } catch (error) {
+      console.error('Failed to save pet:', error); 
     }
-  } catch (error) {
-    console.error('Failed to save pet:', error); 
-  }
-};
+  }, [modalState.showAddPetModal, modalState.showEditPetModal, selectedPet, petFormData, profile?.id, dispatch]);
 
-const handleConfirmDeletePet = async () => {
-  try {
-    if (selectedPet) {
-      const response = await petService.deletePet(selectedPet._id);
-      if (response.success) {
-        setShowDeletePetModal(false);
-        setSelectedPet(null); 
-        dispatch(fetchProfile());
+  const handleConfirmDeletePet = useCallback(async () => {
+    try {
+      if (selectedPet) {
+        const response = await petService.deletePet(selectedPet._id);
+        if (response.success) {
+          setModalState(prev => ({ ...prev, showDeletePetModal: false }));
+          setSelectedPet(null); 
+          dispatch(fetchProfile());
+        } else {
+          console.error('Delete failed - response not successful:', response);
+        }
       } else {
-        console.error('Delete failed - response not successful:', response);
+        console.error('No selected pet to delete');
       }
-    } else {
-      console.error('No selected pet to delete');
+    } catch (error: any) {
+      console.error('Failed to delete pet:', error);
+      console.error('Error details:', error.response?.data || error.message); 
     }
-  } catch (error: any) {
-    console.error('Failed to delete pet:', error);
-    console.error('Error details:', error.response?.data || error.message); 
-  }
-};
+  }, [selectedPet, dispatch]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     if (name.startsWith('address.')) {
       const addressField = name.split('.')[1];
@@ -774,23 +852,22 @@ const handleConfirmDeletePet = async () => {
         [name]: value
       }));
     }
-  };
+  }, []);
 
-  const handlePetInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handlePetInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setPetFormData(prev => ({
       ...prev,
       [name]: value
     }));
-  };
+  }, []);
 
   useEffect(() => {
-    console.log('grrr fetchProfile...');
     if (isAuthenticated) { 
       dispatch(fetchProfile());
     }
   }, [isAuthenticated, dispatch]);
- 
+
   if (!isAuthenticated) {
     navigate('/login');
     return <Loading>Redirecting to login...</Loading>;
@@ -877,12 +954,20 @@ const handleConfirmDeletePet = async () => {
     );
   }
 
+  const { 
+    showEditModal, 
+    showDeleteModal, 
+    showAddPetModal, 
+    showEditPetModal, 
+    showDeletePetModal 
+  } = modalState;
+
   return ( 
     <ProfileContainer>
       <ProfileHeader>
         <ProfileImageContainer>
           <ProfileImage imageUrl={profile.profileImage}>
-            {!profile.profileImage && getInitials(profile)}
+            {!profile.profileImage && profileInitials}
           </ProfileImage>
           <ProfileButtons>
             <ProfileButton className="edit" onClick={handleEditProfile}>
@@ -901,7 +986,7 @@ const handleConfirmDeletePet = async () => {
         <ProfileContent>
           <ProfileInfo>
             <h1>{profile.firstName} {profile.lastName}</h1>
-            <div className="email">{profile.email}  <span>| Pets {profile.pets?.length || 0}</span></div> 
+            <div className="email">{profile.email}  <span>| Pets {petsCount}</span></div> 
             <InfoItem>
               <div> 
                 <strong>Member:</strong>
@@ -977,61 +1062,17 @@ const handleConfirmDeletePet = async () => {
           <p>No pets registered.</p>
         ) : (
           <PetGrid>
-            {profile.pets.map((pet) => {
-              const isExpanded = expandedPets.has(pet._id);
-              return (
-                <PetCard 
-                  key={pet._id} 
-                  isExpanded={isExpanded}
-                  onClick={(e) => togglePetExpansion(pet._id, e)}
-                >
-                  <PetCardContent>
-                    <InfoItem> 
-                      <StatusBadge isActive={pet.isActive}>
-                        {pet.isActive ? 'Active' : 'Inactive'}
-                      </StatusBadge>
-                    </InfoItem>
-                    <PetHeader>
-                      {pet.name}
-                      <ExpandIcon isExpanded={isExpanded}>▼</ExpandIcon>
-                    </PetHeader>
-                  </PetCardContent>
-                  
-                  <PetDetails isExpanded={isExpanded}>
-                    <InlineWrapper><strong>Species:</strong><span>{pet.species}</span></InlineWrapper>
-                    <InlineWrapper><strong>Breed:</strong><span>{pet.breed}</span></InlineWrapper>
-                    <InlineWrapper><strong>Age:</strong><span>{pet.age} years</span></InlineWrapper>
-                    <InlineWrapper><strong>Weight:</strong><span>{pet.weight} kg</span></InlineWrapper>
-                    <InlineWrapper><strong>Color:</strong><span>{pet.color}</span></InlineWrapper>
-                    <InlineWrapper><strong>Gender:</strong><span>{pet.gender}</span></InlineWrapper>
-                    <InlineWrapper><strong>Birth Date:</strong><span>{formatDate(pet.dateOfBirth)}</span></InlineWrapper>
-                    <InlineWrapper><strong>Microchip:</strong><span>{pet.microchipNumber || 'N/A'}</span></InlineWrapper>
-                    <InlineWrapper><strong>Insurance:</strong><span>{pet.insuranceNumber || 'N/A'}</span></InlineWrapper>
-                  </PetDetails>
-                  
-                  <PetActions isExpanded={isExpanded}>
-                    <PetActionButton 
-                      className="edit" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditPet(pet, e);
-                      }}
-                    >
-                      Edit
-                    </PetActionButton>
-                    <PetActionButton 
-                      className="delete" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeletePet(pet, e);
-                      }}
-                    >
-                      Delete
-                    </PetActionButton>
-                  </PetActions>
-                </PetCard>
-              );
-            })}
+            {profile.pets.map((pet) => (
+              <PetCardComponent
+                key={pet._id}
+                pet={pet}
+                isExpanded={expandedPets.has(pet._id)}
+                onToggle={togglePetExpansion}
+                onEdit={handleEditPet}
+                onDelete={handleDeletePet}
+                formatDate={formatDate}
+              />
+            ))}
           </PetGrid>
         )} 
       </PetsSection>
@@ -1395,6 +1436,8 @@ const handleConfirmDeletePet = async () => {
       )}
     </ProfileContainer>
   );
-};
+});
+
+Profile.displayName = 'Profile';
 
 export default Profile;
