@@ -6,8 +6,7 @@ export class GetClientUseCase {
   constructor(private clientRepository: ClientRepository) {}
 
   async execute(clientId: string): Promise<Client> {
-    try {
-      console.log('GetClientUseCase GetClientUseCase GetClientUseCase', clientId)
+    try { 
       const client = await this.clientRepository.findById(clientId);
       if (!client) {
         throw new NotFoundError(

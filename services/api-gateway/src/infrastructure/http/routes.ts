@@ -213,7 +213,7 @@ router.use(
 router.all(
   '/profile',
   authenticate,
-  authorize('client'),
+  authorize('client', 'vet', 'staff', 'admin'),
   createServiceProxy('http://client-service:3002', {   
     '^/profile': '/api/profile' 
   }, true)
@@ -222,7 +222,7 @@ router.all(
 router.all(
   '/edit',
   authenticate,
-  authorize('client'),
+  authorize('client', 'vet'),
   createServiceProxy('http://client-service:3002', {   
     '^/edit': '/api/profile/edit'
   }, true)

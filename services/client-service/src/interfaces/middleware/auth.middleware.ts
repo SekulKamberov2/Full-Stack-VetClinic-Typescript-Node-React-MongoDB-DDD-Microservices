@@ -62,10 +62,11 @@ export const requireClient = (req: AuthenticatedRequest, res: Response, next: Ne
     return;
   }
 
-  if (req.user.role !== 'client') {
+  const allowedRoles = ['client', 'vet', 'staff', 'admin'];
+  if (!allowedRoles.includes(req.user.role)) {
     res.status(403).json({ 
       success: false, 
-      message: 'Access denied. Client role required.' 
+      message: `Access denied. Allowed roles: ${allowedRoles.join(', ')}` 
     });
     return;
   }

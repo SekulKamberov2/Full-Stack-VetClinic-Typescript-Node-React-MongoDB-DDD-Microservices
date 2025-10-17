@@ -33,13 +33,41 @@ export class MongoClientRepository implements ClientRepository {
       this.handleDatabaseError(error, 'findByEmail');
     }
   }
-
+  
   async findAll(): Promise<Client[]> {
-    try {
-      const clientDocs = await this.model.find({ isActive: true })
-        .populate('pets')
+    try { 
+      const clientDocs = await this.model.find().exec();
+       
+      const allPets = await PetModel.find()
+        .populate('awards')
         .exec();
-      return clientDocs.map(doc => this.toEntity(doc));
+       
+      const clients = clientDocs.map(clientDoc => { 
+        const clientPets = allPets.filter(pet => 
+          pet.clientId && pet.clientId.toString() === clientDoc._id.toString()
+        );
+         
+        const petEntities = clientPets.map(pet => this.petToEntity(pet));
+         
+        const clientProps = {
+          _id: clientDoc._id.toString(),
+          firstName: clientDoc.firstName,
+          lastName: clientDoc.lastName,
+          email: clientDoc.email,
+          phone: clientDoc.phone,
+          profileImage: clientDoc.profileImage,
+          role: clientDoc.role,
+          address: clientDoc.address,
+          pets: petEntities,
+          isActive: clientDoc.isActive,
+          createdAt: clientDoc.createdAt,
+          updatedAt: clientDoc.updatedAt,
+        };
+        
+        return Client.create(clientProps);
+      });
+      
+      return clients;
     } catch (error) {
       this.handleDatabaseError(error, 'findAll');
     }
@@ -346,6 +374,7 @@ export class MongoClientRepository implements ClientRepository {
       email: doc.email,
       phone: doc.phone,
       profileImage: doc.profileImage, 
+      role: doc.role,
       address: doc.address,
       pets: doc.pets ? doc.pets.map((pet: any) => this.petToEntity(pet)) : [],
       isActive: doc.isActive,
@@ -354,7 +383,7 @@ export class MongoClientRepository implements ClientRepository {
     };
     return Client.create(props);
   }
-
+ 
   private petToEntity(petDoc: any): any {
     return {
       _id: petDoc._id.toString(),
@@ -366,15 +395,39 @@ export class MongoClientRepository implements ClientRepository {
       weight: petDoc.weight,
       color: petDoc.color,
       gender: petDoc.gender,
+      profileImage: petDoc.profileImage,
       microchipNumber: petDoc.microchipNumber,
       insuranceNumber: petDoc.insuranceNumber,
+      medicalHistory: petDoc.medicalHistory || [],
       dietaryRestrictions: petDoc.dietaryRestrictions || [],
       vaccinationRecords: petDoc.vaccinationRecords || [],
-      awards: petDoc.awards || [],
+      awards: petDoc.awards ? petDoc.awards.map((award: any) => this.awardToEntity(award)) : [],
       isActive: petDoc.isActive,
       clientId: petDoc.clientId?.toString() || petDoc.clientId,
       createdAt: petDoc.createdAt,
       updatedAt: petDoc.updatedAt,
+    };
+  }
+
+  private awardToEntity(awardDoc: any): any {
+    return {
+      _id: awardDoc._id.toString(),
+      title: awardDoc.title,
+      description: awardDoc.description,
+      category: awardDoc.category,
+      level: awardDoc.level,
+      dateAwarded: awardDoc.dateAwarded,
+      points: awardDoc.points,
+      imageUrl: awardDoc.imageUrl,
+      criteria: awardDoc.criteria,
+      petId: awardDoc.petId?.toString() || awardDoc.petId,
+      clientId: awardDoc.clientId?.toString() || awardDoc.clientId,
+      awardedBy: awardDoc.awardedBy,
+      isValid: awardDoc.isValid,
+      expirationDate: awardDoc.expirationDate,
+      metadata: awardDoc.metadata,
+      createdAt: awardDoc.createdAt,
+      updatedAt: awardDoc.updatedAt,
     };
   }
 
@@ -385,6 +438,7 @@ export class MongoClientRepository implements ClientRepository {
     email: client.email,
     phone: client.phone,
     profileImage: client.profileImage,
+    role: client.role,
     address: client.address,
     pets: client.pets.map(pet => pet._id), 
     isActive: client.isActive,

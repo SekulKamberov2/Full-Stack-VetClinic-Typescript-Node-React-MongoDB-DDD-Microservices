@@ -4,8 +4,9 @@ export interface IClientDocument extends Document {
   firstName: string;
   lastName: string;
   email: string;
-  phone: string;
+  phone: string | null;
   profileImage?: string;
+  role: string;
   address: {
     street: string;
     city: string;
@@ -51,12 +52,19 @@ const ClientSchema = new Schema<IClientDocument>(
     },
     phone: { 
       type: String, 
-      required: true, 
+      required: false,
+      default: null, 
       trim: true 
     },
     profileImage: { 
       type: String,
       default: null 
+    },
+      role: { 
+      type: String, 
+      required: true,
+      default: 'client',
+      index: true 
     },
     address: { 
       type: AddressSchema, 

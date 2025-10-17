@@ -6,10 +6,11 @@ export interface ClientProps {
   firstName: string;
   lastName: string;
   email: string;
-  phone: string;
+  phone: string | null;
   profileImage?: string | undefined;
+  role: string;
   address: Address;
-  pets: Pet[];
+  pets: Pet[]; 
   isActive?: boolean | undefined;
   createdAt?: Date | undefined;
   updatedAt?: Date | undefined;
@@ -28,13 +29,14 @@ export class Client {
   public readonly firstName: string;
   public readonly lastName: string;
   public readonly email: string;
-  public readonly phone: string;
+  public readonly phone: string | null;
   public readonly profileImage: string | undefined; 
+  public readonly role: string;
   public readonly address: Address;
   public readonly pets: Pet[];
   public readonly isActive: boolean;
   public readonly createdAt: Date;
-  public readonly updatedAt: Date;
+  public readonly updatedAt: Date; 
 
   private constructor(props: ClientProps) {
     if (props._id instanceof mongoose.Types.ObjectId) {
@@ -48,11 +50,12 @@ export class Client {
     this.email = props.email;
     this.phone = props.phone;
     this.profileImage = props.profileImage;
+    this.role = props.role; 
     this.address = props.address;
     this.pets = props.pets || [];
     this.isActive = props.isActive ?? true;
     this.createdAt = props.createdAt || new Date();
-    this.updatedAt = props.updatedAt || new Date();
+    this.updatedAt = props.updatedAt || new Date(); 
   }
 
   public static create(props: ClientProps): Client {

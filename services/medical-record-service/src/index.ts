@@ -220,7 +220,7 @@ const bootstrap = async () => {
     });
 
     const gracefulShutdown = async (signal: string) => {
-      console.log(`\n Received ${signal}. Starting graceful shutdown...`);
+      console.log(`Received ${signal}. Starting graceful shutdown...`);
       
       server.close(async (err) => {
         if (err) {

@@ -63,7 +63,11 @@ export const authenticate = async (req: GatewayRequest, res: Response, next: Nex
 export const authorize = (...roles: string[]) => {
   return (req: GatewayRequest, res: Response, next: NextFunction) => {
     if (!req.user) return res.status(401).json({ success: false, message: 'Not authenticated' });
-
+    console.log('=== AUTHORIZE MIDDLEWARE ===');
+    console.log('User:', req.user);
+    console.log('User role:', req.user?.role);
+    console.log('Required roles:', roles);
+    console.log('Has required role:', roles.includes(req.user?.role || ''));
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({ 
         success: false, 

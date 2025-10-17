@@ -9,7 +9,7 @@ const initializeApp = () => {
     console.error('Failed to find the root element');
     return;
   }
-
+console.log('React app starting...');
   const root = ReactDOM.createRoot(rootElement);
   
   root.render(

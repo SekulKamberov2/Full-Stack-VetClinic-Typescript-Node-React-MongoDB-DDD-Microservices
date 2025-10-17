@@ -12,8 +12,11 @@ export class CreateClientUseCase {
     firstName: string;
     lastName: string;
     email: string;
-    phone: string;
-    address: {
+    phone: string | null;
+    role: string;
+    profileImage: string; 
+    isActive: boolean;
+    address?: {
       street: string;
       city: string;
       state: string;
@@ -22,7 +25,28 @@ export class CreateClientUseCase {
     };
   }): Promise<Client> { 
     try {
-      this.validateClientData(clientData);
+      const phone = clientData.phone || '';
+
+      const completeClientData = {
+        _id: clientData.id,
+        firstName: clientData.firstName,
+        lastName: clientData.lastName,
+        email: clientData.email,
+        phone: phone,
+        role: clientData.role,
+        profileImage: clientData.profileImage, 
+        address: clientData.address || {
+          street: 'Not provided',
+          city: 'Not provided', 
+          state: 'Not provided',
+          zipCode: '00000',
+          country: 'Not provided'
+        },
+        pets: [],
+        isActive: true
+      };
+
+      this.validateClientData(completeClientData);
       
       const existingClient = await this.clientRepository.findByEmail(clientData.email);
       if (existingClient) {
@@ -36,18 +60,8 @@ export class CreateClientUseCase {
   
       const clientId = clientData.id;
 
-      const completeClientData = {
-        _id: clientId,
-        firstName: clientData.firstName,
-        lastName: clientData.lastName,
-        email: clientData.email,
-        phone: clientData.phone,
-        address: clientData.address,
-        pets: [],
-        isActive: true
-      };
-
       console.log('CreateClientUseCase: Creating client with ID:', clientId);
+      console.log('CreateClientUseCase: Phone value:', phone);
 
       const client = Client.create(completeClientData);
 
@@ -66,7 +80,7 @@ export class CreateClientUseCase {
     firstName: string;
     lastName: string;
     email: string;
-    phone: string;
+    phone: string | null;
     address: {
       street: string;
       city: string;
@@ -90,18 +104,16 @@ export class CreateClientUseCase {
       throw new ValidationError("Email is required", undefined, context);
     }
 
-    if (!phone || phone.trim() === '') {
-      throw new ValidationError("Phone number is required", undefined, context);
-    }
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       throw new ValidationError("Invalid email format", undefined, context);
     }
 
-    const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-    if (!phoneRegex.test(phone.replace(/[\s\-\(\)]/g, ''))) {
-      throw new ValidationError("Invalid phone number format", undefined, context);
+    if (phone && phone.trim() !== '') {
+      const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+      if (!phoneRegex.test(phone.replace(/[\s\-\(\)]/g, ''))) {
+        throw new ValidationError("Invalid phone number format", undefined, context);
+      }
     }
 
     this.validateAddress(address, context);

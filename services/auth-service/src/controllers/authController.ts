@@ -2,9 +2,96 @@ import { Request, Response } from 'express';
 import User from '../models/User';
 import { generateToken } from '../utils/jwt';
 import { AuthRequest } from '../middleware/auth';
-import { ValidationError, NotFoundError, AuthorizationError, ErrorHandler, RequestValidator } from '@vetclinic/shared-kernel';
-
+import { ValidationError, NotFoundError, AuthorizationError, 
+  ErrorHandler, RequestValidator } from '@vetclinic/shared-kernel';
 import { EventPublisher } from '../messaging/EventPublisher';
+
+// interface UserCreatedEvent {
+//   type: 'UserCreatedEvent';
+//   data: {
+//     userId: string;
+//     email: string;
+//     firstName: string;
+//     lastName: string;
+//     phone: string;
+//     role: string;
+//     createdAt: Date;
+//   };
+//   occurredOn: Date;
+// }
+
+// interface UserUpdatedEvent {
+//   type: 'UserUpdatedEvent';
+//   data: {
+//     userId: string;
+//     email: string;
+//     firstName: string;
+//     lastName: string;
+//     phone: string;
+//     role: string;
+//     updatedAt: Date;
+//   };
+//   occurredOn: Date;
+// }
+
+// //type UserEvent = UserCreatedEvent | UserUpdatedEvent;
+
+const publishUserEvent = async (user: any, eventType: 'created' | 'updated'): Promise<void> => {
+  try {
+    console.log(`Publishing user ${eventType} event for role:`, user.role);
+    
+    const eventPublisher = new EventPublisher(process.env.RABBITMQ_URL || 'amqp://localhost');
+    await eventPublisher.connect();
+     
+    const phone = user.phone && user.phone.trim() !== '' ? user.phone.trim() : null;
+    
+    const baseEventData = {
+      userId: user._id.toString(),
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phone: phone,  
+      role: user.role,
+    };
+
+    let event: any; 
+
+    if (eventType === 'created') {
+      event = {
+        type: 'ClientCreatedEvent',
+        data: {
+          ...baseEventData,
+          createdAt: new Date(),
+        },
+        occurredOn: new Date()
+      };
+    } else {
+      event = {
+        type: 'ClientUpdatedEvent',
+        data: {
+          ...baseEventData,
+          updatedAt: new Date(),
+        },
+        occurredOn: new Date()
+      };
+    }
+
+    console.log(`Publishing ${event.type} for user:`, user.email);
+    console.log('Event details:', event);
+    
+    const success = await eventPublisher.publish('client_events', event);
+    
+    if (success) {
+      console.log(`${event.type} published successfully for user:`, user.email);
+    } else {
+      console.error(`Failed to publish ${event.type} for user:`, user.email);
+    }
+    
+    await eventPublisher.disconnect();
+  } catch (eventError) {
+    console.error(`Failed to publish user ${eventType} event:`, eventError);
+  }
+};
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -48,7 +135,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       role,
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      phone: phone?.trim() || '',
+      phone: phone?.trim() || null,
     });
 
     await user.save();
@@ -72,44 +159,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       domain: process.env.COOKIE_DOMAIN || 'localhost',
       path: '/'
     });
- 
-    if (role === 'client') {
-      try { 
-        console.log('Publishing ClientCreatedEvent for user:', user.email);
-        
-        const eventPublisher = new EventPublisher(process.env.RABBITMQ_URL || 'amqp://localhost');
-        await eventPublisher.connect();
-        
-        const clientCreatedEvent = {
-          type: 'ClientCreatedEvent',
-          data: {
-            userId: user._id.toString(),
-            clientId: user._id.toString(),
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            phone: user.phone || '',
-            role: user.role,
-            createdAt: new Date(),
-          },
-          occurredOn: new Date()
-        };
 
-        console.log('Publishing event:', clientCreatedEvent);
-        
-        const success = await eventPublisher.publish('client_events', clientCreatedEvent);
-        
-        if (success) {
-          console.log('ClientCreatedEvent published successfully for user:', user.email);
-        } else {
-          console.error('Failed to publish ClientCreatedEvent for user:', user.email);
-        }
-         
-        await eventPublisher.disconnect();
-      } catch (eventError) { 
-        console.error('Failed to publish ClientCreatedEvent:', eventError); 
-      }
-    } 
+    console.log('USER CREATED - About to publish event for user:', user.email);
+    await publishUserEvent(user, 'created');
+    console.log('EVENT PUBLISHED - Should have created client for:', user.email);
 
     res.status(201).json({
       success: true,
@@ -344,7 +397,7 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
     const updateData: any = {};
     if (firstName) updateData.firstName = firstName.trim();
     if (lastName) updateData.lastName = lastName.trim();
-    if (phone !== undefined) updateData.phone = phone.trim();
+    if (phone !== undefined) updateData.phone = phone?.trim() || null;
  
     const user = await User.findByIdAndUpdate(
       req.user._id,
@@ -362,6 +415,8 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
         'AuthController'
       );
     }
+
+    await publishUserEvent(user, 'updated');
 
     res.status(200).json({
       success: true,
@@ -533,6 +588,8 @@ export const deactivateAccount = async (req: AuthRequest, res: Response): Promis
         'AuthController'
       );
     }
+
+    await publishUserEvent(user, 'updated');
 
     res.status(200).json({
       success: true,

@@ -8,6 +8,13 @@ export const api = axios.create({
   withCredentials: true,
 });
 
+export const apii = axios.create({
+  baseURL: 'http://localhost:3003',
+  timeout: 10000,
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
+});
+
 export const clientApi = axios.create({
   baseURL: 'http://localhost:3002',
   timeout: 10000,
@@ -30,10 +37,11 @@ export interface ProfileResponse {
 }
 
 export const authService = {
-  login: async (loginData: LoginData): Promise<boolean> => {
+  login: async (loginData: LoginData): Promise<any> => {
     try {
-      const response = await api.post<boolean>('/auth/login', loginData);
-      return response ? true : false;
+      const response = await api.post<any>('/auth/login', loginData);
+      console.log('authService login', response);
+      return response.data; // ? true : false;
     } catch (error: any) {
       console.error('Login error:', error.response?.data || error.message);
       throw new Error(error.response?.data?.message || 'Login failed');
@@ -53,6 +61,7 @@ export const authService = {
   getProfile: async (): Promise<ProfileResponse> => {
     try {
       const response = await api.get<ProfileResponse>('/profile');
+      console.log('getProfile - no role', response)
       return response.data;
     } catch (error: any) {
       

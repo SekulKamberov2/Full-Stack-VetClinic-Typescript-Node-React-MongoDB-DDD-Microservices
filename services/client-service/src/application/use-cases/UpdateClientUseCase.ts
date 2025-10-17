@@ -10,6 +10,7 @@ export class UpdateClientUseCase {
     lastName: string;
     email: string;
     phone: string;
+    role: string;
     address: {
       street: string;
       city: string;
@@ -55,6 +56,7 @@ export class UpdateClientUseCase {
     lastName: string;
     email: string;
     phone: string;
+    role: string;
     address: {
       street: string;
       city: string;

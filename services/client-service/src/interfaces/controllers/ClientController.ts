@@ -8,6 +8,7 @@ import { UpdateClientProfileImageUseCase } from '../../application/use-cases/Upd
 import { AuthenticatedRequest } from '../middleware/auth.middleware'; 
 import { PetRepository } from 'src/domain/repositories/PetRepository';
 
+
 export class ClientController {
   [x: string]: any;
   constructor(
@@ -63,49 +64,76 @@ export class ClientController {
   }
 
   async getProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
-    try {
-      const clientId = req.user!.id;   
-      const client = await this.getClientUseCase.execute(clientId);
+  try {
+    const clientId = req.user!.id;   
+    let client = await this.getClientUseCase.execute(clientId);
+     
+    if (!client) {
+      console.log(`Client profile not found for ID: ${clientId}, creating on-demand`);
       
-      if (!client) {
-        res.status(404).json({
+      try {
+        const createClientUseCase = new CreateClientUseCase(this.clientRepository);
+        
+        client = await createClientUseCase.execute({
+          id: clientId,
+          firstName: req.user!.firstName,
+          lastName: req.user!.lastName,
+          email: req.user!.email,
+          phone: '+0000000000',
+          role: req.user!.role, 
+          profileImage: '',
+          address: {
+            street: 'Unknown',
+            city: 'Unknown', 
+            state: 'Unknown',
+            zipCode: '00000',
+            country: 'Unknown'
+          }, 
+          isActive: true
+        }); 
+       
+      } catch (createError) {
+        console.error('Failed to create profile on-demand:', createError);
+        res.status(500).json({
           success: false,
-          message: 'Client profile not found',
+          message: 'Profile not found and could not be created'
         });
         return;
       }
-
-      const pets = await this.petRepository.findByClientId(clientId);
-
-      res.json({
-        success: true,
-        data: {
-          id: client._id,
-          firstName: client.firstName,
-          lastName: client.lastName,
-          email: client.email,
-          phone: client.phone,
-          profileImage: client.profileImage,
-          address: client.address,
-          pets: pets,
-          isActive: client.isActive,
-          createdAt: client.createdAt,
-          updatedAt: client.updatedAt
-        }
-      });
-    } catch (error: any) {
-      console.error('Error getting profile:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message,
-      });
     }
+
+    const pets = await this.petRepository.findByClientId(clientId);
+
+    res.json({
+      success: true,
+      data: {
+        id: client._id,
+        firstName: client.firstName,
+        lastName: client.lastName,
+        email: client.email,
+        phone: client.phone,
+        profileImage: client.profileImage,
+        role: client.role,
+        address: client.address,
+        pets: pets,
+        isActive: client.isActive,
+        createdAt: client.createdAt,
+        updatedAt: client.updatedAt
+      }
+    });
+  } catch (error: any) {
+    console.error('Error getting profile:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
+}
 
   async updateProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const clientId = req.user!.id;   
-      const allowedFields = ['firstName', 'lastName', 'phone', 'address', 'profileImage'];
+      const allowedFields = ['firstName', 'lastName', 'phone', 'address', 'profileImage', 'role'];
       const updateData: any = {};
       
       allowedFields.forEach(field => {
@@ -134,6 +162,7 @@ export class ClientController {
           email: client.email,
           phone: client.phone,
           profileImage: client.profileImage,
+          role: client.role,
           address: client.address
         }
       });
@@ -189,6 +218,7 @@ export class ClientController {
   async getAllClients(_req: Request, res: Response): Promise<void> {
     try {
       const clients = await this.getAllClientsUseCase.execute();
+    
       res.json({
         success: true,
         data: clients,

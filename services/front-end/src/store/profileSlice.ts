@@ -1,5 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { profileService, ProfileData } from '../services/profileService';
+import { petHealthService, PatientDetails } from '../services/petHealthService';
+import { resetAllSlices } from './rootActions';
 
 export interface Award {
   _id: string;
@@ -40,6 +42,7 @@ export interface Profile {
   lastName: string;
   email: string;
   phone: string;
+  role: string;
   profileImage: string;
   address: Address;
   pets: Pet[];
@@ -53,6 +56,9 @@ export interface ProfileState {
   loading: boolean;
   error: string | null;
   updateSuccess: boolean;
+  petHealthDetails: PatientDetails | null;
+  petHealthLoading: boolean;
+  petHealthError: string | null;
 }
 
 const initialState: ProfileState = {
@@ -60,6 +66,9 @@ const initialState: ProfileState = {
   loading: false,
   error: null,
   updateSuccess: false,
+  petHealthDetails: null,
+  petHealthLoading: false,
+  petHealthError: null,
 };
 
 export const fetchProfile = createAsyncThunk(
@@ -151,6 +160,29 @@ export const uploadProfileImage = createAsyncThunk(
   }
 );
 
+export const fetchPetHealthDetails = createAsyncThunk(
+  'profile/fetchPetHealthDetails',
+  async ({ ownerId, patientId }: { ownerId: string; patientId: string }, { rejectWithValue }) => {
+    try {
+      const response = await petHealthService.getPetHealthDetails(ownerId, patientId);
+       
+      if (response.success) {
+        if (response.data) {
+          return response.data;
+        } else {
+          throw new Error('No health data available for this pet');
+        }
+      } else { 
+        const errorMessage = (response as any).message || 'Failed to fetch pet health details';
+        throw new Error(errorMessage);
+      }
+    } catch (error: any) {
+      console.error('fetchPetHealthDetails thunk error:', error);
+      return rejectWithValue(error.message || 'Failed to fetch pet health details');
+    }
+  }
+);
+
 const profileSlice = createSlice({
   name: 'profile',
   initialState,
@@ -198,19 +230,51 @@ const profileSlice = createSlice({
       state.error = null;
       state.updateSuccess = false;
     },
+    resetProfileComplete: () => {
+      return initialState;
+    },
+    resetProfileAndHealth: (state) => {
+      state.profile = null;
+      state.loading = false;
+      state.error = null;
+      state.updateSuccess = false;
+      state.petHealthDetails = null;
+      state.petHealthLoading = false;
+      state.petHealthError = null;
+    },
+    clearPetHealthDetails: (state) => {
+      state.petHealthDetails = null;
+      state.petHealthError = null;
+    },
+    clearPetHealthError: (state) => {
+      state.petHealthError = null;
+    },
+    resetLoadingStates: (state) => {
+      state.loading = false;
+      state.petHealthLoading = false;
+    },
+    resetAllErrors: (state) => {
+      state.error = null;
+      state.petHealthError = null;
+    }
   },
   extraReducers: (builder) => {
     builder
+      .addCase(resetAllSlices, () => {
+        return initialState;
+      })
       .addCase(fetchProfile.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchProfile.fulfilled, (state, action) => { 
-        console.log('Action payload received:', action.payload); 
+      .addCase(fetchProfile.fulfilled, (state, action) => {  
         state.loading = false;
         
-        if (action.payload) {
-          state.profile = action.payload as Profile;
+        if (action.payload) { 
+          const profileData = action.payload as Profile;
+          state.profile = {
+            ...profileData, 
+          };
         } else {
           state.profile = null;
         }
@@ -263,6 +327,10 @@ const profileSlice = createSlice({
         state.loading = false;
         state.profile = null;
         state.error = null;
+        state.updateSuccess = false;
+        state.petHealthDetails = null;
+        state.petHealthLoading = false;
+        state.petHealthError = null;
       })
       .addCase(deleteProfile.rejected, (state, action) => {
         state.loading = false;
@@ -297,6 +365,20 @@ const profileSlice = createSlice({
       .addCase(uploadProfileImage.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+      })
+      .addCase(fetchPetHealthDetails.pending, (state) => {
+        state.petHealthLoading = true;
+        state.petHealthError = null;
+      })
+      .addCase(fetchPetHealthDetails.fulfilled, (state, action) => {
+        state.petHealthLoading = false;
+        state.petHealthDetails = action.payload;
+        state.petHealthError = null;
+      })
+      .addCase(fetchPetHealthDetails.rejected, (state, action) => {
+        state.petHealthLoading = false;
+        state.petHealthError = action.payload as string;
+        state.petHealthDetails = null;
       });
   },
 });
@@ -310,6 +392,12 @@ export const {
   addPet,
   removePet,
   resetProfileState,
+  resetProfileComplete,
+  resetProfileAndHealth,
+  resetLoadingStates,
+  resetAllErrors,
+  clearPetHealthDetails,
+  clearPetHealthError,
 } = profileSlice.actions;
 
 export const selectProfile = (state: { profile: ProfileState }) => {
@@ -321,5 +409,8 @@ export const selectUpdateSuccess = (state: { profile: ProfileState }) => state.p
 export const selectPets = (state: { profile: ProfileState }) => state.profile.profile?.pets || [];
 export const selectProfileAddress = (state: { profile: ProfileState }) => state.profile.profile?.address;
 export const selectProfileImage = (state: { profile: ProfileState }) => state.profile.profile?.profileImage;
+export const selectPetHealthDetails = (state: { profile: ProfileState }) => state.profile.petHealthDetails;
+export const selectPetHealthLoading = (state: { profile: ProfileState }) => state.profile.petHealthLoading;
+export const selectPetHealthError = (state: { profile: ProfileState }) => state.profile.petHealthError;
 
 export default profileSlice.reducer;
